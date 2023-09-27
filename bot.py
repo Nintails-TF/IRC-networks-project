@@ -6,20 +6,22 @@ the server.
 """
 class Socket:
     def __init__(self, host, port):
-        self.host = host # Host defines the name/IP of the host
-        self.port = 6667 # Port defines the port name, we use 6667 as default, as it is the default IRC port.
+        self.host = "::1" # Host defines the name/IP of the host. (localhost is default)
+        self.port = 6667 # Port defines the port name, (6667 as its default IRC port)
 
     # connectToServer will connect the IRC bot to the specified server.
     def connectToServer():
         pass
 
-
+    # pong will ensure that the bot responds to the ping request with a pong
+    def pong():
+        pass
 
 """
 The Menu class is resonsible for handling user input via the CLI/terminal, ensuring that
 users can input flags to modify parameters. e.g.
 
-python bot.py -ipv6 fc00:1337::19
+python bot.py --ipv6 fc00:1337::19
 
 would set the Ipv6 address to connect to.
 """
@@ -36,6 +38,7 @@ class Bot:
         self.nickname = nickname # nickname defines the NICK details for IRC.
         self.userDetails = userDetails # userDetails defines the USER details for IRC.
 
+    # registerBot is responsible for registering the bots details to the IRC server.
     def registerBot():
         pass
 
