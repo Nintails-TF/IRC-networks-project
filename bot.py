@@ -11,11 +11,11 @@ class Socket:
 
     # @return IRC connection
     def connectToServer(self):
-        # Testing connection details
-        print(self.getHost(), self.getPort())
+        # Setting the host to my VM details
+        self.setHost("fe80::bab9:6f2a:267c:df12")
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.connect(self.host, self.port) # Connect using our details
+            s.connect((self.host, self.port)) # Connect using our details
             s.sendall("Hi how are you doing today?")
             response = s.recv(1024) # wait for response
         print(response)
@@ -36,8 +36,6 @@ class Socket:
     
     def setPort(self, port):
         self.port = port
-
-   
 
 
 """
