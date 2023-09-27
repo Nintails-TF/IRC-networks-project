@@ -12,9 +12,9 @@ s.bind((HOST, PORT))
 
 # listen for incoming connections 
 s.listen(5)
-print(f"Listening on {HOST}:{PORT}")
+print(f"Listening on {HOST} : {PORT}")
 
 while True:
     # accept incoming connections
     client_socket, client_address = s.accept()
-    print(f"Accepted connection from {client_address[0]}:{client_address[1]}")
+    print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
