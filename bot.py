@@ -1,6 +1,6 @@
 """
-The socket class is responsible for handling the network connection between the Bot (client) and
-the server
+The socket class is responsible for handling the network connections between the Bot (client) and
+the server.
 """
 class Socket:
     def __init__(self) -> None:
@@ -18,8 +18,8 @@ class Menu:
         pass
 
 """
-The Bot class is responsible for holding all the functions that the bot must perform. e.g. joining a 
-IRC server, getting registered, sending messages, etc.
+The Bot class is responsible for holding all the functions that the bot must perform. e.g. getting registeration details, 
+sending messages, etc.
 """
 class Bot:
     def __init__(self, nickname, userDetails):
