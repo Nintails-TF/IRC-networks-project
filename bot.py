@@ -9,7 +9,7 @@ class Socket:
 The Menu class is resonsible for handling user input via the CLI/terminal, ensuring that
 users can input flags to modify parameters. e.g.
 
-python bot.py -ipv6 
+python bot.py -ipv6 fc00:1337::19
 
 would set the Ipv6 address to connect to.
 """
@@ -26,9 +26,9 @@ class Bot:
         self.nickname = nickname # nickname defines the NICK details for IRC.
         self.userDetails = userDetails # userDetails defines the USER details for IRC.
 
-    def main():
-        # Setting the default registration details for the bot.
-        swagBot = Bot("SwagBot", "SwagBot 0 * :SwagBot ")
+def main():
+    # Setting the default registration details for the bot.
+    swagBot = Bot("SwagBot", "SwagBot 0 * :SwagBot ")
 
-    if __name__ == "__main__":
-        main()
+if __name__ == "__main__":
+    main()
