@@ -6,15 +6,15 @@ the server.
 """
 class Socket:
     def __init__(self, host, port):
-        self.host = "::1" # Host defines the name/IP of the host. (localhost is default)
-        self.port = 6667 # Port defines the port name, (6667 as its default IRC port)
+        self.host = host # (localhost is default)
+        self.port = port # (6667 as its default IRC port)
 
     # connectToServer will connect the IRC bot to the specified server.
-    def connectToServer():
-        pass
+    def connectToServer(self):
+        print("XD")
 
-    # pong will ensure that the bot responds to the ping request with a pong
-    def pong():
+    # pong will ensures that ping requests are met with a pong
+    def pong(self):
         pass
 
 """
@@ -39,12 +39,14 @@ class Bot:
         self.userDetails = userDetails # userDetails defines the USER details for IRC.
 
     # registerBot is responsible for registering the bots details to the IRC server.
-    def registerBot():
+    def registerBot(self):
         pass
 
 def main():
     # Setting the default registration details for the bot.
     swagBot = Bot("SwagBot", "SwagBot 0 * :SwagBot ")
+    clientSocket = Socket("::1", 6667)
+    clientSocket.connectToServer()
 
 if __name__ == "__main__":
     main()
