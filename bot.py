@@ -1,3 +1,5 @@
+import socket # The python socket library.
+
 """
 The socket class is responsible for handling the network connections between the Bot (client) and
 the server.
