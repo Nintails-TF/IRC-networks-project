@@ -12,7 +12,8 @@ class Socket:
     # @return IRC connection
     def connectToServer(self):
         # Setting the host to my VM details
-        self.setHost("fe80::bab9:6f2a:267c:df12")
+        self.setHost("::1") # fe80::3b25:2d08:82c0:7e3e, Localhost = ::1
+        print(self.host , self.port)
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
