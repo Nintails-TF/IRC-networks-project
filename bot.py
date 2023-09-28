@@ -11,13 +11,12 @@ class Socket:
 
     # @return IRC connection
     def connectToServer(self):
-        # Setting the host to my VM details
-        self.setHost("fc00:1337::17") # QMB IP - fc00:1337::17, Localhost = ::1
+        # Testing host and port details
         print(self.host , self.port)
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
-            s.sendall("Hi how are you doing today?")
+            s.sendall("Hi how are you doing today?") # SEND REGISTRATION DETAILS
 
             response = s.recv(1024) # wait for response
         print(response)
@@ -69,8 +68,8 @@ def main():
     # Setting the default registration details for the bot.
     swagBot = Bot("SwagBot", "SwagBot 0 * :SwagBot ")
     # CHECK FOR USER INPUTS
-    clientSocket = Socket("::1", 6667)
-    clientSocket.connectToServer()
+    clientSocket = Socket("fc00:1337::17", 6667) # Linux IP - fc00:1337::17, Localhost = ::1, Windows IP - fc00:1337::19
+    clientSocket.connectToServer() # SEND BOT DATA HERE
 
 if __name__ == "__main__":
     main()
