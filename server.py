@@ -1,26 +1,71 @@
 import socket
 
-#Define server constants
-HOST = '::'  # listen on all IPv6 addresses
+# Defines server constaints
+HOST = '::'
 PORT = 6667
 
-#Create the socket
-s = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+# Create the socket object for IPv6 TCP connection
+server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
 
-#Bind the socket to the host and the port
-s.bind((HOST, PORT))
-
-#Listen for incoming connections 
-s.listen(5)
-print(f"Listening on {HOST} : {PORT}")
-
-
-clients_info = {}
-
-while True:
-    #Accept incoming connections
-    client_socket, client_address = s.accept()
-    print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
+try:
+    # Bind the socket to the specified host and port
+    server_socket.bind((HOST, PORT))
     
-    #Remember client's info
-    clients_info[client_socket] = {"address": client_address}
+    # Listen for incoming connections with a backlog queue of 5
+    server_socket.listen(5)
+    print(f"Listening on {HOST} : {PORT}")
+
+    # Accept incoming connections
+    client_socket, client_address = server_socket.accept()
+    print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
+
+    # Variable to store the nickname of the connected client
+    nickname = None  
+    # Variable to indicate whether the USER command is received
+    user_received = False  
+
+    # Initialize a buffer to store incoming data
+    buffer = ""  
+
+    while True:
+        # Receive data from the client
+        data = client_socket.recv(4096)
+
+        # If no data is received, the client has disconnected
+        if not data:
+            break
+
+        # Append incoming data to the buffer
+        buffer += data.decode('utf-8')
+
+        # Process each message in the buffer
+        while '\r\n' in buffer:
+            # Extract the first message from the buffer and strip leading and trailing whitespaces
+            message, buffer = buffer.split('\r\n', 1)
+            message = message.strip()
+            # Using repr to visualize non-printable characters and any extra spaces.
+            print(f"Received: {repr(message)}")  
+
+            # Respond CAP LS command with the server's capabilities
+            if message.startswith('CAP LS'):
+                client_socket.send(b":server CAP * LS :\r\n")
+            # Extract and store the client's nickname when the NICK command is received
+            elif message.startswith('NICK'):
+                nickname = message.split(' ')[1]
+                print(f"Nickname set to {nickname}")
+            # Set the user_received flag to True when the USER command is received
+            elif message.startswith('USER'):
+                user_received = True
+                print(f"USER received")
+            # Send the welcome message when CAP END is received, and both NICK and USER have been processed
+            elif message.startswith('CAP END') and nickname and user_received:
+                welcome_msg = f":server 001 {nickname} :Welcome to the IRC Server!\r\n"
+                print(f"Sending:\n{welcome_msg}")
+                client_socket.send(welcome_msg.encode('utf-8'))
+
+except Exception as e:
+    print(f"Error: {e}")
+finally:
+    # Close the client and server sockets
+    client_socket.close()
+    server_socket.close()
