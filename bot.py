@@ -12,12 +12,13 @@ class Socket:
     # @return IRC connection
     def connectToServer(self):
         # Setting the host to my VM details
-        self.setHost("::1") # fe80::3b25:2d08:82c0:7e3e, Localhost = ::1
+        self.setHost("fc00:1337::17") # QMB IP - fc00:1337::17, Localhost = ::1
         print(self.host , self.port)
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.connect((self.host, self.port, 0, 0)) # Connect using our details
+            s.connect((self.host, self.port)) # Connect using our details
             s.sendall("Hi how are you doing today?")
+
             response = s.recv(1024) # wait for response
         print(response)
         
