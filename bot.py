@@ -6,21 +6,19 @@ the server.
 """
 class Socket:
     def __init__(self, host, port):
-        self.host = host # (localhost is default)
-        self.port = port # (6667 as its default IRC port)
+        self.host = host 
+        self.port = port 
 
-    # @return IRC connection
     def connectToServer(self):
         # Setting the NICK and REAL name of the bot
         swagBot = Bot("SwagBot", "Swag")
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.connect((self.host, self.port)) # Connect using our details
+            s.connect((self.host, self.port))
             s.send(swagBot.botRegistration()) # Send NICK and USER details
             # RETAIN INFO STEP
-            s.send(swagBot.botJoinChannel()) # Trying to join test channel
-            self.keepalive(s) # Keeping the bot in the server
-        return s
+            s.send(swagBot.botJoinChannel())
+            self.keepalive(s)
 
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s):
@@ -68,18 +66,15 @@ sending messages, etc.
 """
 class Bot:
     def __init__(self, nickname, realname):
-        self.nickname = nickname # nickname defines the NICK details for IRC.
-        self.realname = realname # userDetails defines the USER details for IRC.
+        self.nickname = nickname 
+        self.realname = realname 
 
-    # botRegistration is responsible for the bot connecting to the IRC server
     # @return a formatted NICK and USER command
     def botRegistration(self):
-        # Concatenating a string to create the user details
         user = "NICK " + self.nickname +  "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
-        # print(user) Testing using string
-        return user.encode() # We need to encode the data into bytes so it can be sent via socket.
+        return user.encode() 
     
-    # @return a formatted join statemen to join the test channel.
+    # @return a formatted join statement to join the test channel.
     def botJoinChannel(self):
         join = "JOIN #test\r\n"
         return join.encode()
@@ -87,7 +82,7 @@ class Bot:
 def main():
     # CHECK FOR USER INPUTS
     clientSocket = Socket("fc00:1337::17", 6667) # Linux IP - fc00:1337::17, Localhost = ::1, Windows IP - fc00:1337::19
-    openSocket = clientSocket.connectToServer() # openSocket is the open IRC socket.
+    clientSocket.connectToServer() # openSocket is the open IRC socket.
 
 
 if __name__ == "__main__":
