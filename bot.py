@@ -30,9 +30,8 @@ class Socket:
                 # IF PING REQUEST IS MADE, RESPOND WITH PONG
                 if text.find("PING") != -1:
                     s.send("PONG " + text.split() [1] +"! \r\n")
-                # NEED BREAK CONDITION
             except KeyboardInterrupt:
-                s.close()
+                break
     
     
 
