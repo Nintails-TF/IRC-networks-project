@@ -13,13 +13,15 @@ class Socket:
     def connectToServer(self):
         # Testing host and port details
         print(self.host , self.port)
+        # Setting the NICK and REAL name of the bot
+        swagBot = Bot("SwagBot", "Joseph Goldberg")
+        botInfo = swagBot.registerBot()
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
-            s.sendall("Hi how are you doing today?") # SEND REGISTRATION DETAILS
-
+            s.send(botInfo) # SEND REGISTRATION DETAILS
             response = s.recv(1024) # wait for response
-        print(response)
+        print(response) # This should return RPL_WELCOME
         
 
     # pong will ensures that ping requests are met with a pong, avoids bot being timed out.
@@ -56,17 +58,18 @@ The Bot class is responsible for holding all the functions that the bot must per
 sending messages, etc.
 """
 class Bot:
-    def __init__(self, nickname, userDetails):
+    def __init__(self, nickname, realname):
         self.nickname = nickname # nickname defines the NICK details for IRC.
-        self.userDetails = userDetails # userDetails defines the USER details for IRC.
+        self.realname = realname # userDetails defines the USER details for IRC.
 
     # registerBot is responsible for registering the bots details to the IRC server.
+    # @return a formatted USER command
     def registerBot(self):
-        pass
+        # Concatenating a string to create the user details
+        user = "USER " + self.nickname + " 0 * " + ":" + self.realname
+        return user
 
 def main():
-    # Setting the default registration details for the bot.
-    swagBot = Bot("SwagBot", "SwagBot 0 * :SwagBot ")
     # CHECK FOR USER INPUTS
     clientSocket = Socket("fc00:1337::17", 6667) # Linux IP - fc00:1337::17, Localhost = ::1, Windows IP - fc00:1337::19
     clientSocket.connectToServer() # SEND BOT DATA HERE
