@@ -15,11 +15,11 @@ class Socket:
         print(self.host , self.port)
         # Setting the NICK and REAL name of the bot
         swagBot = Bot("SwagBot", "Joseph Goldberg")
-        botInfo = swagBot.registerBot()
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
-            s.send(botInfo) # SEND REGISTRATION DETAILS
+            s.send(swagBot.botNick()) # Send NICK details
+            # s.send(swagBot.botUser()) # Send USER details
             response = s.recv(1024) # wait for response
         print(response) # This should return RPL_WELCOME
         
@@ -62,9 +62,14 @@ class Bot:
         self.nickname = nickname # nickname defines the NICK details for IRC.
         self.realname = realname # userDetails defines the USER details for IRC.
 
-    # registerBot is responsible for registering the bots details to the IRC server.
+    # @return formmated NICK command
+    def botNick(self):
+        nick = "NICK " + self.nickname
+        return nick
+
+    # botUser is responsible for creating a user command.
     # @return a formatted USER command
-    def registerBot(self):
+    def botUser(self):
         # Concatenating a string to create the user details
         user = "USER " + self.nickname + " 0 * " + ":" + self.realname
         return user
