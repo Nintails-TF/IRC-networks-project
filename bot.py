@@ -20,13 +20,14 @@ class Socket:
             s.send(swagBot.botJoinChannel()) # Trying to join test channel
             # response = s.recv(1024) # wait for response
             # print(response) # This should return RPL_WELCOME
+            while 1:
+                text = s.recv(2040)
+                print(text)
         return s
 
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s):
-        while 1:
-            text = s.recv(2040)
-            print(text)
+        pass
 
 
     # pong will handle ping requests with a corresponding pong
@@ -84,7 +85,7 @@ def main():
     # CHECK FOR USER INPUTS
     clientSocket = Socket("fc00:1337::17", 6667) # Linux IP - fc00:1337::17, Localhost = ::1, Windows IP - fc00:1337::19
     openSocket = clientSocket.connectToServer() # openSocket is the open IRC socket.
-    clientSocket = clientSocket.keepalive(openSocket)
+    # clientSocket = clientSocket.keepalive(openSocket)
 
 
 if __name__ == "__main__":
