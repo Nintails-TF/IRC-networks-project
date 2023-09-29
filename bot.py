@@ -27,6 +27,9 @@ class Socket:
             text = s.recv(2040)
             print(text)
             # IF PING REQUEST IS MADE, RESPOND WITH PONG
+            if text.find("PING"):
+                s.send("PONG " + text.split() [1] +"! \r\n")
+            # NEED BREAK CONDITION
 
 
     # pong will handle ping requests with a corresponding pong
