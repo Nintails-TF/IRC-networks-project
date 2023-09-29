@@ -32,10 +32,6 @@ class Socket:
             except KeyboardInterrupt:
                 break
 
-    
-    
-
-
     # pong will handle ping requests with a corresponding pong
     def pong(self, s, text):
         # Check if the incoming message is a PING request
@@ -95,7 +91,6 @@ def main():
     # CHECK FOR USER INPUTS
     clientSocket = Socket("fc00:1337::17", 6667) # Linux IP - fc00:1337::17, Localhost = ::1, Windows IP - fc00:1337::19
     clientSocket.connectToServer() 
-
 
 if __name__ == "__main__":
     main()
