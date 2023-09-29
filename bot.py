@@ -75,6 +75,11 @@ class Bot:
         user = "USER " + self.nickname + " 0 * " + ":" + self.realname
         # We need to encode the data into bytes so it can be sent
         return user.encode()
+    
+    # @return
+    def botJoinChannel(self):
+        join = "JOIN #test" # This should be changed to allow user to pick
+        return join.encode
 
 def main():
     # CHECK FOR USER INPUTS
