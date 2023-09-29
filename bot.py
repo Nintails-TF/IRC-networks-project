@@ -18,11 +18,14 @@ class Socket:
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
+            # s.send(swagBot.botNick()) # Send NICK details
+            s.send(swagBot.botUser()) # Send USER details
             response = s.recv(1024) # wait for response
             print(response) # This should return RPL_WELCOME
-            s.send(swagBot.botNick()) # Send NICK details
-            s.send(swagBot.botUser()) # Send USER details
             s.send(swagBot.botJoinChannel()) # Trying to join test channel
+
+            # response = s.recv(1024) # wait for response
+            # print(response) # This should return RPL_WELCOME
         
 
     # pong will ensures that ping requests are met with a pong, avoids bot being timed out.
@@ -73,14 +76,15 @@ class Bot:
     # @return a formatted USER command
     def botUser(self):
         # Concatenating a string to create the user details
-        user = "USER " + self.nickname + " 0 * " + ":" + self.realname
+        user = "NICK " + self.nickname +  " USER " + self.nickname + " 0 * " + ":" + self.realname
+        print(user)
         # We need to encode the data into bytes so it can be sent
         return user.encode()
     
     # @return
     def botJoinChannel(self):
         join = "JOIN #test" # This should be changed to allow user to pick
-        return join.encode
+        return join.encode()
 
 def main():
     # CHECK FOR USER INPUTS
