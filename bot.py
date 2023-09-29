@@ -24,7 +24,9 @@ class Socket:
 
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s):
-        pass
+        while 1:
+            text = s.recv(2040)
+            print(text)
 
 
     # pong will handle ping requests with a corresponding pong
