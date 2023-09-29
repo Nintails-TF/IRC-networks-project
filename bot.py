@@ -19,8 +19,14 @@ class Socket:
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
             s.send(swagBot.botNick()) # Send NICK details
+            response = s.recv(1024) # wait for response
+            print(response)
             s.send(swagBot.botUser()) # Send USER details
             response = s.recv(1024) # wait for response
+            print(response)
+            s.send(swagBot.botJoinChannel()) # Trying to join test channel
+            response = s.recv(1024) # wait for response
+            print(response)
         print(response) # This should return RPL_WELCOME
         
 
