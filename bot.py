@@ -78,7 +78,7 @@ class Bot:
     
     # @return
     def botJoinChannel(self):
-        join = "JOIN #test" # This should be changed to allow user to pick
+        join = "JOIN #test\r\n" # This should be changed to allow user to pick
         return join.encode()
 
 def main():
