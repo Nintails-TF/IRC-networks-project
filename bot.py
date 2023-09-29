@@ -6,22 +6,37 @@ the server.
 """
 class Socket:
     def __init__(self, host, port):
-        self.host = host # (localhost is default)
-        self.port = port # (6667 as its default IRC port)
+        self.host = host 
+        self.port = port 
 
-    # @return IRC connection
     def connectToServer(self):
-        # Setting the host to my VM details
-        self.setHost("fe80::bab9:6f2a:267c:df12")
+        # Setting the NICK and REAL name of the bot
+        swagBot = Bot("SwagBot", "Swag")
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.connect((self.host, self.port)) # Connect using our details
-            s.sendall("Hi how are you doing today?")
-            response = s.recv(1024) # wait for response
-        print(response)
-        
+            s.connect((self.host, self.port))
+            s.send(swagBot.botRegistration()) # Send NICK and USER details
+            # RETAIN INFO STEP - use recv to get data from IRC server
+            s.send(swagBot.botJoinChannel())
+            self.keepalive(s)
 
-    # pong will ensures that ping requests are met with a pong, avoids bot being timed out.
+    # keepalive will keep the bot in the IRC server
+    def keepalive(self, s):
+        # This will loop until you CTRL+C
+        while True:
+            try:
+                text = s.recv(2048)
+                print(text)
+                # IF PING REQUEST IS MADE, RESPOND WITH PONG
+                if text.find("PING") != -1:
+                    s.send("PONG " + text.split() [1] +"! \r\n")
+            except KeyboardInterrupt:
+                break
+    
+    
+
+
+    # pong will handle ping requests with a corresponding pong
     def pong(self):
         pass
 
@@ -55,20 +70,25 @@ The Bot class is responsible for holding all the functions that the bot must per
 sending messages, etc.
 """
 class Bot:
-    def __init__(self, nickname, userDetails):
-        self.nickname = nickname # nickname defines the NICK details for IRC.
-        self.userDetails = userDetails # userDetails defines the USER details for IRC.
+    def __init__(self, nickname, realname):
+        self.nickname = nickname 
+        self.realname = realname 
 
-    # registerBot is responsible for registering the bots details to the IRC server.
-    def registerBot(self):
-        pass
+    # @return a formatted NICK and USER command
+    def botRegistration(self):
+        user = "NICK " + self.nickname +  "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
+        return user.encode() 
+    
+    # @return a formatted join statement to join the test channel.
+    def botJoinChannel(self):
+        join = "JOIN #test\r\n"
+        return join.encode()
 
 def main():
-    # Setting the default registration details for the bot.
-    swagBot = Bot("SwagBot", "SwagBot 0 * :SwagBot ")
     # CHECK FOR USER INPUTS
-    clientSocket = Socket("::1", 6667)
-    clientSocket.connectToServer()
+    clientSocket = Socket("fc00:1337::17", 6667) # Linux IP - fc00:1337::17, Localhost = ::1, Windows IP - fc00:1337::19
+    clientSocket.connectToServer() 
+
 
 if __name__ == "__main__":
     main()
