@@ -76,7 +76,10 @@ try:
                 print(f"Sending:\n{welcome_msg}")
                 client_socket.send(welcome_msg.encode('utf-8'))
             else:
-                client_socket.send(b":server 421 :Unknown command\r\n")
+                # Handle unknown command
+                error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
+                print(f"Sending:\n{error_msg}")
+                client_socket.send(error_msg.encode('utf-8'))
 except Exception as e:
     print(f"Error: {e}")
 finally:
