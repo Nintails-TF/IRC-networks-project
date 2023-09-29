@@ -11,8 +11,6 @@ class Socket:
 
     # @return IRC connection
     def connectToServer(self):
-        # Testing host and port details
-        print(self.host , self.port)
         # Setting the NICK and REAL name of the bot
         swagBot = Bot("SwagBot", "Joseph Goldberg")
         # Defining a socket, with Ipv6 using TCP socket
@@ -20,12 +18,16 @@ class Socket:
             s.connect((self.host, self.port)) # Connect using our details
             s.send(swagBot.botRegistration()) # Send NICK and USER details
             s.send(swagBot.botJoinChannel()) # Trying to join test channel
+            # response = s.recv(1024) # wait for response
+            # print(response) # This should return RPL_WELCOME
+        return s
 
-            response = s.recv(1024) # wait for response
-            print(response) # This should return RPL_WELCOME
-        
+    # keepalive will keep the bot in the IRC server
+    def keepalive(self, s):
+        pass
 
-    # pong will ensures that ping requests are met with a pong, avoids bot being timed out.
+
+    # pong will handle ping requests with a corresponding pong
     def pong(self):
         pass
 
@@ -68,9 +70,8 @@ class Bot:
     def botRegistration(self):
         # Concatenating a string to create the user details
         user = "NICK " + self.nickname +  "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
-        print(user)
-        # We need to encode the data into bytes so it can be sent
-        return user.encode()
+        # print(user) Testing using string
+        return user.encode() # We need to encode the data into bytes so it can be sent via socket.
     
     # @return
     def botJoinChannel(self):
@@ -80,7 +81,9 @@ class Bot:
 def main():
     # CHECK FOR USER INPUTS
     clientSocket = Socket("fc00:1337::17", 6667) # Linux IP - fc00:1337::17, Localhost = ::1, Windows IP - fc00:1337::19
-    clientSocket.connectToServer() # SEND BOT DATA HERE
+    openSocket = clientSocket.connectToServer() # openSocket is the open IRC socket.
+    clientSocket = clientSocket.keepalive(openSocket)
+
 
 if __name__ == "__main__":
     main()
