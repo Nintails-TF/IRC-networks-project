@@ -18,16 +18,11 @@ class Socket:
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
+            response = s.recv(1024) # wait for response
+            print(response) # This should return RPL_WELCOME
             s.send(swagBot.botNick()) # Send NICK details
-            response = s.recv(1024) # wait for response
-            print(response)
             s.send(swagBot.botUser()) # Send USER details
-            response = s.recv(1024) # wait for response
-            print(response)
             s.send(swagBot.botJoinChannel()) # Trying to join test channel
-            response = s.recv(1024) # wait for response
-            print(response)
-        print(response) # This should return RPL_WELCOME
         
 
     # pong will ensures that ping requests are met with a pong, avoids bot being timed out.
