@@ -12,11 +12,12 @@ class Socket:
     # @return IRC connection
     def connectToServer(self):
         # Setting the NICK and REAL name of the bot
-        swagBot = Bot("SwagBot", "Joseph Goldberg")
+        swagBot = Bot("SwagBot", "Swag")
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
             s.send(swagBot.botRegistration()) # Send NICK and USER details
+            # RETAIN INFO STEP
             s.send(swagBot.botJoinChannel()) # Trying to join test channel
             self.keepalive(s) # Keeping the bot in the server
         return s
@@ -24,7 +25,7 @@ class Socket:
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s):
         while 1:
-            text = s.recv(2040)
+            text = s.recv(2048)
             print(text)
             # IF PING REQUEST IS MADE, RESPOND WITH PONG
             if text.find("PING") != -1:
@@ -78,9 +79,9 @@ class Bot:
         # print(user) Testing using string
         return user.encode() # We need to encode the data into bytes so it can be sent via socket.
     
-    # @return
+    # @return a formatted join statemen to join the test channel.
     def botJoinChannel(self):
-        join = "JOIN #test\r\n" # This should be changed to allow user to pick
+        join = "JOIN #test\r\n"
         return join.encode()
 
 def main():
