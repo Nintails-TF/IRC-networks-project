@@ -1,5 +1,12 @@
 import socket
 
+def is_valid_nickname(nickname):
+    # Max length of username
+    max_length = 15
+    # All characters in this string are allowed for names
+    allowed_characters = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
+    return len(nickname) <= max_length and all(c in allowed_characters for c in nickname)
+
 # Defines server constaints
 HOST = '::'
 PORT = 6667
@@ -52,17 +59,24 @@ try:
             # Extract and store the client's nickname when the NICK command is received
             elif message.startswith('NICK'):
                 nickname = message.split(' ')[1]
+                if not is_valid_nickname(nickname):
+                    client_socket.send(b":server 432 :Erroneous Nickname\r\n")
+                    # Go to the next iteration of the while loop.
+                    continue  
                 print(f"Nickname set to {nickname}")
+            
             # Set the user_received flag to True when the USER command is received
             elif message.startswith('USER'):
                 user_received = True
                 print(f"USER received")
+            
             # Send the welcome message when CAP END is received, and both NICK and USER have been processed
             elif message.startswith('CAP END') and nickname and user_received:
                 welcome_msg = f":server 001 {nickname} :Welcome to the IRC Server!\r\n"
                 print(f"Sending:\n{welcome_msg}")
                 client_socket.send(welcome_msg.encode('utf-8'))
-
+            else:
+                client_socket.send(b":server 421 :Unknown command\r\n")
 except Exception as e:
     print(f"Error: {e}")
 finally:
