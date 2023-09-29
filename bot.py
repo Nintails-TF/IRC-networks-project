@@ -21,8 +21,8 @@ class Socket:
             s.send(swagBot.botRegistration()) # Send NICK and USER details
             s.send(swagBot.botJoinChannel()) # Trying to join test channel
 
-            # response = s.recv(1024) # wait for response
-            # print(response) # This should return RPL_WELCOME
+            response = s.recv(1024) # wait for response
+            print(response) # This should return RPL_WELCOME
         
 
     # pong will ensures that ping requests are met with a pong, avoids bot being timed out.
