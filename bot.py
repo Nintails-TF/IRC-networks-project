@@ -18,10 +18,7 @@ class Socket:
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
-            # s.send(swagBot.botNick()) # Send NICK details
-            s.send(swagBot.botUser()) # Send USER details
-            response = s.recv(1024) # wait for response
-            print(response) # This should return RPL_WELCOME
+            s.send(swagBot.botRegistration()) # Send NICK and USER details
             s.send(swagBot.botJoinChannel()) # Trying to join test channel
 
             # response = s.recv(1024) # wait for response
@@ -66,15 +63,9 @@ class Bot:
         self.nickname = nickname # nickname defines the NICK details for IRC.
         self.realname = realname # userDetails defines the USER details for IRC.
 
-    # @return formmated NICK command
-    def botNick(self):
-        nick = "NICK " + self.nickname
-        # We need to encode the data into bytes so it can be sent
-        return nick.encode()
-
-    # botUser is responsible for creating a user command.
-    # @return a formatted USER command
-    def botUser(self):
+    # botRegistration is responsible for the bot connecting to the IRC server
+    # @return a formatted NICK and USER command
+    def botRegistration(self):
         # Concatenating a string to create the user details
         user = "NICK " + self.nickname +  "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
         print(user)
