@@ -27,7 +27,7 @@ class Socket:
             text = s.recv(2040)
             print(text)
             # IF PING REQUEST IS MADE, RESPOND WITH PONG
-            if text.find("PING"):
+            if text.find("PING") != -1:
                 s.send("PONG " + text.split() [1] +"! \r\n")
             # NEED BREAK CONDITION
 
