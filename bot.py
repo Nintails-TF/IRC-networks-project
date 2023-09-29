@@ -16,19 +16,25 @@ class Socket:
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port))
             s.send(swagBot.botRegistration()) # Send NICK and USER details
-            # RETAIN INFO STEP
+            # RETAIN INFO STEP - use recv to get data from IRC server
             s.send(swagBot.botJoinChannel())
             self.keepalive(s)
 
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s):
-        while 1:
-            text = s.recv(2048)
-            print(text)
-            # IF PING REQUEST IS MADE, RESPOND WITH PONG
-            if text.find("PING") != -1:
-                s.send("PONG " + text.split() [1] +"! \r\n")
-            # NEED BREAK CONDITION
+        # This will loop until you CTRL+C
+        while True:
+            try:
+                text = s.recv(2048)
+                print(text)
+                # IF PING REQUEST IS MADE, RESPOND WITH PONG
+                if text.find("PING") != -1:
+                    s.send("PONG " + text.split() [1] +"! \r\n")
+                # NEED BREAK CONDITION
+            except KeyboardInterrupt:
+                s.close()
+    
+    
 
 
     # pong will handle ping requests with a corresponding pong
@@ -82,7 +88,7 @@ class Bot:
 def main():
     # CHECK FOR USER INPUTS
     clientSocket = Socket("fc00:1337::17", 6667) # Linux IP - fc00:1337::17, Localhost = ::1, Windows IP - fc00:1337::19
-    clientSocket.connectToServer() # openSocket is the open IRC socket.
+    clientSocket.connectToServer() 
 
 
 if __name__ == "__main__":
