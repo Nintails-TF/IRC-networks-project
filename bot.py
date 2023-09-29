@@ -15,10 +15,11 @@ class Socket:
         print(self.host , self.port)
         # Setting the NICK and REAL name of the bot
         swagBot = Bot("SwagBot", "Joseph Goldberg")
+        nick = (swagBot.botNick()).encode()
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port)) # Connect using our details
-            s.send(swagBot.botNick()) # Send NICK details
+            s.send(nick) # Send NICK details
             # s.send(swagBot.botUser()) # Send USER details
             response = s.recv(1024) # wait for response
         print(response) # This should return RPL_WELCOME
