@@ -76,7 +76,7 @@ class Bot:
     # @return a formatted USER command
     def botUser(self):
         # Concatenating a string to create the user details
-        user = "NICK " + self.nickname +  "\r\nUSER" + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
+        user = "NICK " + self.nickname +  "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
         print(user)
         # We need to encode the data into bytes so it can be sent
         return user.encode()
