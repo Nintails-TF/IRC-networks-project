@@ -27,13 +27,20 @@ class IRCServer:
             self.server_socket.listen(5)
             print(f"Listening on {self.HOST} : {self.PORT}")
 
-            client_socket = self.accept_connection() 
-            client = IRCClient(client_socket)
-            client.handle_client()
-            
-        # Catch any exceptions and print error
+            # Keeps the server running
+            while True:  
+                client_socket = self.accept_connection()
+                client = IRCClient(client_socket)
+                client.handle_client()
+
+        # Specific handling for socket errors
+        except socket.error as se:
+            print(f"Socket error in client: {se}")
+
+        # Catch all other exceptions
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error in client: {e}")
+        
         finally:
             # Close socket when exitting
             self.server_socket.close()
@@ -117,8 +124,14 @@ class IRCClient:
                     message = message.strip()
                     print(f"Received: {repr(message)}")
                     self.process_message(message)
+        
+        # Specific handling for socket errors
+        except socket.error as se:
+            print(f"Socket error in client: {se}")
+
+        # Catch all other exceptions
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error in client: {e}")
         finally:
             self.client_socket.close()
 
