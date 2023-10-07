@@ -11,6 +11,12 @@ class IRCServer:
 
         # Initialize the server socket using IPv6 and TCP protocol
         self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    
+    def accept_connection(self):
+        # Waits for an incoming connection and then get the client socket and address
+        client_socket, client_address = self.server_socket.accept()
+        print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
+        return client_socket
 
     def start(self):
         try:
@@ -21,11 +27,7 @@ class IRCServer:
             self.server_socket.listen(5)
             print(f"Listening on {self.HOST} : {self.PORT}")
 
-            # Waits for an incoming connection and then get the client socket and address
-            client_socket, client_address = self.server_socket.accept()
-            print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
-            
-            
+            client_socket = self.accept_connection() 
             client = IRCClient(client_socket)
             client.handle_client()
             
