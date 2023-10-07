@@ -53,6 +53,49 @@ class IRCClient:
         # Valid nickname has to meet max len and allowed chars or sets false
         return len(nickname) <= max_length and all(c in allowed_characters for c in nickname)
 
+    def process_message(self, message):
+        if message.startswith('CAP LS'):
+            self.handle_cap_ls()
+        elif message.startswith('NICK'):
+            self.handle_nick(message)
+        elif message.startswith('USER'):
+            self.handle_user()
+        elif message.startswith('CAP END') and self.nickname and self.user_received:
+            self.handle_cap_end()
+        else:
+            self.handle_unknown(message)
+
+    def handle_cap_ls(self):
+        # Respond to the CAP LS command indicating the server’s capabilities
+        self.client_socket.send(b":server CAP * LS :\r\n")
+
+    def handle_nick(self, message):
+        # Extract and validate the nickname from the NICK command
+        self.nickname = message.split(' ')[1]
+        if not self.is_valid_nickname(self.nickname):
+            # Send an error message for invalid nicknames then skips any further processing
+            self.client_socket.send(b":server 432 :Erroneous Nickname\r\n")
+            return
+        print(f"Nickname set to {self.nickname}")
+
+    def handle_user(self):
+        # Mark that the USER command has been received
+        self.user_received = True
+        print(f"USER received")
+
+    def handle_cap_end(self):
+        # Send a welcome message after capabilities sorted
+        welcome_msg = f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
+        print(f"Sending:\n{welcome_msg}")
+        self.client_socket.send(welcome_msg.encode('utf-8'))
+
+    def handle_unknown(self, message):
+        # Sends error msg to client if unknown command
+        error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
+        print(f"Sending:\n{error_msg}")
+        self.client_socket.send(error_msg.encode('utf-8'))
+
+
     def handle_client(self):
         try:
             while True:
@@ -71,44 +114,12 @@ class IRCClient:
                     message, self.buffer = self.buffer.split('\r\n', 1)
                     message = message.strip()
                     print(f"Received: {repr(message)}")
-
-                     # Goes through each known command and handles them
-                    if message.startswith('CAP LS'):
-                        # Respond to the CAP LS command indicating the server’s capabilities
-                        self.client_socket.send(b":server CAP * LS :\r\n")
-
-                    elif message.startswith('NICK'):
-                        # Extract and validate the nickname from the NICK command
-                        self.nickname = message.split(' ')[1]
-                        if not self.is_valid_nickname(self.nickname):
-                            # Send an error message for invalid nicknames then skips any further processing
-                            self.client_socket.send(b":server 432 :Erroneous Nickname\r\n")
-                            continue
-                        print(f"Nickname set to {self.nickname}")
-
-                    elif message.startswith('USER'):
-                        # Mark that the USER command has been received
-                        self.user_received = True
-                        print(f"USER received")
-
-                    elif message.startswith('CAP END') and self.nickname and self.user_received:
-                        # Send a welcome message after capabilities sorted
-                        welcome_msg = f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
-                        print(f"Sending:\n{welcome_msg}")
-                        self.client_socket.send(welcome_msg.encode('utf-8'))
-
-                    else:
-                        # Sends error msg to client if unknown command
-                        error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
-                        print(f"Sending:\n{error_msg}")
-                        self.client_socket.send(error_msg.encode('utf-8'))
-
+                    self.process_message(message)
         except Exception as e:
-            # Print any exceptions that occur
             print(f"Error: {e}")
         finally:
-            # Close socket when exitting
             self.client_socket.close()
+
 
 if __name__ == "__main__":
     server = IRCServer()
