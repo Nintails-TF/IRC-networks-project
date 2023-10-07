@@ -1,10 +1,5 @@
 import socket
 
-# Constants
-MAX_NICKNAME_LENGTH = 15
-ALLOWED_NICKNAME_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
-
-
 class IRCServer:
     # Set the Host to IPv6 addressing scheme
     # Listen on all available interfaces
@@ -85,9 +80,17 @@ class IRCClient:
         # Maximum length of nickname
         max_length = 15
         # Defines set of allowed characters in a nickname
-        allowed_characters = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
-        # Valid nickname has to meet max len and allowed chars or sets false
-        return len(nickname) <= max_length and all(c in allowed_characters for c in nickname)
+        allowed_characters = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}")
+
+        # Defines set of characters a nickname can start with
+        starting_characters = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+        # Ensure it starts with a valid character
+        if nickname[0] not in starting_characters:
+            return False
+    
+        # Ensure the nickname length and subsequent characters are valid
+        return len(nickname) <= max_length and all(c in allowed_characters for c in nickname[1:])
 
     def process_message(self, message):
         # A flag to track if the command has been handled
