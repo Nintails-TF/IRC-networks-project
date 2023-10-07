@@ -66,6 +66,14 @@ class IRCClient:
         self.user_received = False
         self.buffer = ""
         
+        # Command-handler mapping
+        self.commands = {
+            'CAP LS': self.handle_cap_ls,
+            'NICK': self.handle_nick,
+            'USER': self.handle_user,
+            'CAP END': self.handle_cap_end
+        }
+        
     # Checks for valid nickname according to IRC protocol
     def is_valid_nickname(self, nickname):
         # Maximum length of nickname
@@ -76,18 +84,21 @@ class IRCClient:
         return len(nickname) <= max_length and all(c in allowed_characters for c in nickname)
 
     def process_message(self, message):
-        if message.startswith('CAP LS'):
-            self.handle_cap_ls()
-        elif message.startswith('NICK'):
-            self.handle_nick(message)
-        elif message.startswith('USER'):
-            self.handle_user()
-        elif message.startswith('CAP END') and self.nickname and self.user_received:
-            self.handle_cap_end()
-        else:
+        # A flag to track if the command has been handled
+        handled = False  
+        
+        for cmd, handler in self.commands.items():
+            if message.startswith(cmd):
+                handler(message)
+                handled = True
+                break
+    
+        # If the command wasn't found in the command-handler dictionary
+        if not handled:
             self.handle_unknown(message)
 
-    def handle_cap_ls(self):
+
+    def handle_cap_ls(self, message=None):
         # Respond to the CAP LS command indicating the server’s capabilities
         self.client_socket.send(b":server CAP * LS :\r\n")
 
@@ -100,12 +111,12 @@ class IRCClient:
             return
         print(f"Nickname set to {self.nickname}")
 
-    def handle_user(self):
+    def handle_user(self, message=None):
         # Mark that the USER command has been received
         self.user_received = True
         print(f"USER received")
 
-    def handle_cap_end(self):
+    def handle_cap_end(self, message=None):
         # Send a welcome message after capabilities sorted
         welcome_msg = f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
         print(f"Sending:\n{welcome_msg}")
