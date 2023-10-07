@@ -73,7 +73,13 @@ class IRCClient:
             'USER': self.handle_user,
             'CAP END': self.handle_cap_end
         }
-        
+    
+    # Sends a message to the client and logs it
+    def send_message(self, message):
+        print(f"Sending:\n{message}")
+        self.client_socket.send(message.encode('utf-8'))
+    
+
     # Checks for valid nickname according to IRC protocol
     def is_valid_nickname(self, nickname):
         # Maximum length of nickname
@@ -107,7 +113,7 @@ class IRCClient:
         self.nickname = message.split(' ')[1]
         if not self.is_valid_nickname(self.nickname):
             # Send an error message for invalid nicknames then skips any further processing
-            self.client_socket.send(b":server 432 :Erroneous Nickname\r\n")
+            self.send_message(":server 432 :Erroneous Nickname\r\n")
             return
         print(f"Nickname set to {self.nickname}")
 
@@ -119,14 +125,13 @@ class IRCClient:
     def handle_cap_end(self, message=None):
         # Send a welcome message after capabilities sorted
         welcome_msg = f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
-        print(f"Sending:\n{welcome_msg}")
-        self.client_socket.send(welcome_msg.encode('utf-8'))
+        self.send_message(welcome_msg)
 
     def handle_unknown(self, message):
         # Sends error msg to client if unknown command
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
-        print(f"Sending:\n{error_msg}")
-        self.client_socket.send(error_msg.encode('utf-8'))
+        self.send_message(error_msg)
+
 
 
     def handle_client(self):
