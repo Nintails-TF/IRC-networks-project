@@ -1,17 +1,30 @@
 import socket
 
-class IRCServer:
-    def __init__(self):
-        # Set the Host to IPv6 addressing scheme
-        # Listen on all available interfaces
-        self.HOST = '::'
-        
-        # Port num the server will listen on
-        self.PORT = 6667
+# Constants
+MAX_NICKNAME_LENGTH = 15
+ALLOWED_NICKNAME_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
 
+
+class IRCServer:
+    # Set the Host to IPv6 addressing scheme
+    # Listen on all available interfaces
+    HOST = '::'
+        
+    # Port num the server will listen on
+    PORT = 6667    
+
+    def __init__(self):
         # Initialize the server socket using IPv6 and TCP protocol
         self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
     
+    def bind_and_listen(self):
+        # Assigns the socket to the specified host and port number
+        self.server_socket.bind((self.HOST, self.PORT))
+        
+        # Enable the server to accept connections, with a backlog of 5
+        self.server_socket.listen(5)
+        print(f"Listening on {self.HOST} : {self.PORT}")
+
     def accept_connection(self):
         # Waits for an incoming connection and then get the client socket and address
         client_socket, client_address = self.server_socket.accept()
@@ -26,11 +39,7 @@ class IRCServer:
     def start(self):
         try:
             # Assigns the socket to the specified host and port number
-            self.server_socket.bind((self.HOST, self.PORT))
-            
-            # Enable the server to accept connections, with a backlog of 5
-            self.server_socket.listen(5)
-            print(f"Listening on {self.HOST} : {self.PORT}")
+            self.bind_and_listen()
 
             # Keeps the server running
             while True:  
