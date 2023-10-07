@@ -1,37 +1,59 @@
 import socket
 
-class IRCServer:
-    def __init__(self):
-        # Set the Host to IPv6 addressing scheme
-        # Listen on all available interfaces
-        self.HOST = '::'
-        
-        # Port num the server will listen on
-        self.PORT = 6667
+# Constants
+MAX_NICKNAME_LENGTH = 15
+ALLOWED_NICKNAME_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-")
 
+
+class IRCServer:
+    # Set the Host to IPv6 addressing scheme
+    # Listen on all available interfaces
+    HOST = '::'
+        
+    # Port num the server will listen on
+    PORT = 6667    
+
+    def __init__(self):
         # Initialize the server socket using IPv6 and TCP protocol
         self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    
+    def bind_and_listen(self):
+        # Assigns the socket to the specified host and port number
+        self.server_socket.bind((self.HOST, self.PORT))
+        
+        # Enable the server to accept connections, with a backlog of 5
+        self.server_socket.listen(5)
+        print(f"Listening on {self.HOST} : {self.PORT}")
+
+    def accept_connection(self):
+        # Waits for an incoming connection and then get the client socket and address
+        client_socket, client_address = self.server_socket.accept()
+        print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
+        return client_socket
+
+    def handle_individual_client(self, client_socket):
+        # Make a client instance and manage interactions
+        client = IRCClient(client_socket)
+        client.handle_client()
 
     def start(self):
         try:
             # Assigns the socket to the specified host and port number
-            self.server_socket.bind((self.HOST, self.PORT))
-            
-            # Enable the server to accept connections, with a backlog of 5
-            self.server_socket.listen(5)
-            print(f"Listening on {self.HOST} : {self.PORT}")
+            self.bind_and_listen()
 
-            # Waits for an incoming connection and then get the client socket and address
-            client_socket, client_address = self.server_socket.accept()
-            print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
-            
-            
-            client = IRCClient(client_socket)
-            client.handle_client()
-            
-        # Catch any exceptions and print error
+            # Keeps the server running
+            while True:  
+                client_socket = self.accept_connection()
+                self.handle_individual_client(client_socket)
+
+        # Specific handling for socket errors
+        except socket.error as se:
+            print(f"Socket error in client: {se}")
+
+        # Catch all other exceptions
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error in client: {e}")
+        
         finally:
             # Close socket when exitting
             self.server_socket.close()
@@ -44,6 +66,14 @@ class IRCClient:
         self.user_received = False
         self.buffer = ""
         
+        # Command-handler mapping
+        self.commands = {
+            'CAP LS': self.handle_cap_ls,
+            'NICK': self.handle_nick,
+            'USER': self.handle_user,
+            'CAP END': self.handle_cap_end
+        }
+        
     # Checks for valid nickname according to IRC protocol
     def is_valid_nickname(self, nickname):
         # Maximum length of nickname
@@ -54,18 +84,21 @@ class IRCClient:
         return len(nickname) <= max_length and all(c in allowed_characters for c in nickname)
 
     def process_message(self, message):
-        if message.startswith('CAP LS'):
-            self.handle_cap_ls()
-        elif message.startswith('NICK'):
-            self.handle_nick(message)
-        elif message.startswith('USER'):
-            self.handle_user()
-        elif message.startswith('CAP END') and self.nickname and self.user_received:
-            self.handle_cap_end()
-        else:
+        # A flag to track if the command has been handled
+        handled = False  
+        
+        for cmd, handler in self.commands.items():
+            if message.startswith(cmd):
+                handler(message)
+                handled = True
+                break
+    
+        # If the command wasn't found in the command-handler dictionary
+        if not handled:
             self.handle_unknown(message)
 
-    def handle_cap_ls(self):
+
+    def handle_cap_ls(self, message=None):
         # Respond to the CAP LS command indicating the server’s capabilities
         self.client_socket.send(b":server CAP * LS :\r\n")
 
@@ -78,12 +111,12 @@ class IRCClient:
             return
         print(f"Nickname set to {self.nickname}")
 
-    def handle_user(self):
+    def handle_user(self, message=None):
         # Mark that the USER command has been received
         self.user_received = True
         print(f"USER received")
 
-    def handle_cap_end(self):
+    def handle_cap_end(self, message=None):
         # Send a welcome message after capabilities sorted
         welcome_msg = f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
         print(f"Sending:\n{welcome_msg}")
@@ -115,8 +148,14 @@ class IRCClient:
                     message = message.strip()
                     print(f"Received: {repr(message)}")
                     self.process_message(message)
+        
+        # Specific handling for socket errors
+        except socket.error as se:
+            print(f"Socket error in client: {se}")
+
+        # Catch all other exceptions
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Error in client: {e}")
         finally:
             self.client_socket.close()
 
