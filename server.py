@@ -18,6 +18,11 @@ class IRCServer:
         print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
         return client_socket
 
+    def handle_individual_client(self, client_socket):
+        # Make a client instance and manage interactions
+        client = IRCClient(client_socket)
+        client.handle_client()
+
     def start(self):
         try:
             # Assigns the socket to the specified host and port number
@@ -30,8 +35,7 @@ class IRCServer:
             # Keeps the server running
             while True:  
                 client_socket = self.accept_connection()
-                client = IRCClient(client_socket)
-                client.handle_client()
+                self.handle_individual_client(client_socket)
 
         # Specific handling for socket errors
         except socket.error as se:
