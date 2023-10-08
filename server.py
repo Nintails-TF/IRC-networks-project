@@ -69,7 +69,8 @@ class IRCClient:
             'USER': self.handle_user,
             'CAP END': self.handle_cap_end,
             'JOIN': self.handle_join,
-            'PING': self.handle_ping
+            'PING': self.handle_ping,
+            'PRIVMSG': self.handle_private_messages
         }
     
     # Sends a message to the client and logs it
@@ -188,6 +189,8 @@ class IRCClient:
         finally:
             self.client_socket.close()
 
+    def handle_private_messages(self, message):
+        self.send_message(f":{self.nickname} PRIVMSG :{message}\r\n")
 
 if __name__ == "__main__":
     server = IRCServer()
