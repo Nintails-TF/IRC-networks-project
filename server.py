@@ -58,6 +58,7 @@ class IRCClient:
     def __init__(self, client_socket):
         self.client_socket = client_socket
         self.nickname = None
+        self.channels = []
         self.user_received = False
         self.buffer = ""
         
@@ -66,7 +67,9 @@ class IRCClient:
             'CAP LS': self.handle_cap_ls,
             'NICK': self.handle_nick,
             'USER': self.handle_user,
-            'CAP END': self.handle_cap_end
+            'CAP END': self.handle_cap_end,
+            'JOIN': self.handle_join,
+            'PING': self.handle_ping
         }
     
     # Sends a message to the client and logs it
@@ -134,8 +137,17 @@ class IRCClient:
         # Sends error msg to client if unknown command
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
         self.send_message(error_msg)
-
-
+        
+    def handle_join(self, message):
+        channel = message.split(' ')[1]
+        if channel not in self.channels:
+            self.channels.append(channel)
+        print(f"{self.nickname} joined {channel}")
+        self.send_message(f":{self.nickname} JOIN :{channel}\r\n")
+    
+    def handle_ping(self, message):
+        ping_data = message.split(' ')[1]
+        self.send_message(f"PONG :{ping_data}\r\n")
 
     def handle_client(self):
         try:
