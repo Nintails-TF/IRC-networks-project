@@ -24,7 +24,7 @@ class IRCServer:
         # Waits for an incoming connection and then get the client socket and address
         client_socket, client_address = self.server_socket.accept()
         print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
-        return client_socket
+        return client_socket    
 
     def handle_individual_client(self, client_socket):
         # Make a client instance and manage interactions
@@ -115,13 +115,22 @@ class IRCClient:
         self.client_socket.send(b":server CAP * LS :\r\n")
 
     def handle_nick(self, message):
-        # Extract and validate the nickname from the NICK command
-        self.nickname = message.split(' ')[1]
-        if not self.is_valid_nickname(self.nickname):
+    # Extract and validate the nickname from the NICK command
+        new_nickname = message.split(' ')[1].strip()
+        old_nickname = self.nickname
+
+        if not self.is_valid_nickname(new_nickname):
             # Send an error message for invalid nicknames then skips any further processing
             self.send_message(":server 432 :Erroneous Nickname\r\n")
             return
+
+        self.nickname = new_nickname
         print(f"Nickname set to {self.nickname}")
+
+        # If old_nickname is not None, send the confirmation message
+        if old_nickname:
+            self.send_message(f":{old_nickname} NICK :{new_nickname}\r\n")
+
 
     def handle_user(self, message=None):
         # Mark that the USER command has been received
@@ -149,7 +158,7 @@ class IRCClient:
         ping_data = message.split(' ')[1]
         self.send_message(f"PONG :{ping_data}\r\n")
 
-    def handle_client(self):
+    def handle_client(self):    
         try:
             while True:
                 # Set to read up to 4096 bytes from the client
