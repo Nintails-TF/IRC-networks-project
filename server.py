@@ -209,18 +209,22 @@ class IRCClient:
         # Sends error msg to client if unknown command
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
         self.send_message(error_msg)
-        
+    
     def handle_join(self, message):
-        # Extract the channel from the message
-        channel = message.split(' ')[1]
-        
-        # If the chanel is not in the list, create a new channel
-        if channel not in self.channels:
-            self.channels.append(channel)
-        print(f"{self.nickname} joined {channel}")
-        
-        # Sends message tto the server that X has joined channel
-        self.send_message(f":{self.nickname} JOIN :{channel}\r\n")
+        channel_name = message.split(' ')[1].strip()
+        if not channel_name.startswith('#'):
+            self.send_message(f":server 461 {channel_name} :Not enough parameters\r\n")
+            return
+        # Retrieve or create channel
+        channel = self.server.get_or_create_channel(channel_name)
+
+        # Check if already in the channel
+        if channel_name not in self.channels:
+            # Add client to channel
+            channel.add_client(self) 
+             # Update client's list of channels
+            self.channels[channel_name] = channel
+
     
     def handle_ping(self, message):
         ping_data = message.split(' ')[1]
@@ -284,7 +288,26 @@ class IRCClient:
             print(f"Error in client: {e}")
         finally:
             self.notify_disconnect()
-            
+
+class Channel:
+    def __init__(self, name):
+        self.name = name
+        self.clients = []
+
+    def add_client(self, client):
+        self.clients.append(client)
+        client.send_message(f":{client.nickname} JOIN :{self.name}\r\n")
+
+    def remove_client(self, client):
+        self.clients.remove(client)
+        client.send_message(f":{client.nickname} PART :{self.name}\r\n")
+
+    def broadcast(self, message, origin_client):
+        for client in self.clients:
+            if client != origin_client:
+                client.send_message(f":{origin_client.nickname} PRIVMSG {self.name} :{message}\r\n")
+
+
 if __name__ == "__main__":
     server = IRCServer()
     server.start()
