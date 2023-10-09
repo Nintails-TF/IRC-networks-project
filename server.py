@@ -1,4 +1,5 @@
 import socket
+import threading
 
 class IRCServer:
     # Set the Host to IPv6 addressing scheme
@@ -11,7 +12,10 @@ class IRCServer:
     def __init__(self):
         # Initialize the server socket using IPv6 and TCP protocol
         self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    
+        self.clients = []
+        self.clients_lock = threading.Lock()
+        self.registered_users = []
+        
     def bind_and_listen(self):
         # Assigns the socket to the specified host and port number
         self.server_socket.bind((self.HOST, self.PORT))
@@ -27,9 +31,22 @@ class IRCServer:
         return client_socket    
 
     def handle_individual_client(self, client_socket):
-        # Make a client instance and manage interactions
-        client = IRCClient(client_socket)
+         # Create an IRCClient instance for the given socket
+        client = IRCClient(client_socket, self)
+        
+        # Lock to avoid issues with many clients at once.
+        self.clients_lock.acquire()
+        
+        # Appending a new client to the list
+        try:
+            self.clients.append(client)
+        finally:
+            # Unlock after appending
+            self.clients_lock.release()
+        
+        # Start client tasks        
         client.handle_client()
+
 
     def start(self):
         try:
@@ -39,7 +56,7 @@ class IRCServer:
             # Keeps the server running
             while True:  
                 client_socket = self.accept_connection()
-                self.handle_individual_client(client_socket)
+                threading.Thread(target=self.handle_individual_client, args=(client_socket,)).start()
 
         # Specific handling for socket errors
         except socket.error as se:
@@ -53,14 +70,17 @@ class IRCServer:
             # Close socket when exitting
             self.server_socket.close()
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 class IRCClient:
-    def __init__(self, client_socket):
+    def __init__(self, client_socket, server):
         self.client_socket = client_socket
+        self.server = server
         self.nickname = None
         self.channels = []
         self.user_received = False
         self.buffer = ""
+        self.is_registered = False
         
         # Command-handler mapping
         self.commands = {
@@ -70,8 +90,11 @@ class IRCClient:
             'CAP END': self.handle_cap_end,
             'JOIN': self.handle_join,
             'PING': self.handle_ping,
-            'PRIVMSG': self.handle_private_messages
+            'PRIVMSG': self.handle_private_messages,
+            'QUIT': self.handle_quit
         }
+        
+
     
     # Sends a message to the client and logs it
     def send_message(self, message):
@@ -96,52 +119,81 @@ class IRCClient:
         # Ensure the nickname length and subsequent characters are valid
         return len(nickname) <= max_length and all(c in allowed_characters for c in nickname[1:])
 
+    def notify_disconnect(self):
+        # If the user has a nickname and is registered.
+        if self.nickname and self.nickname in self.server.registered_users:
+            # Remove the nickname from list
+            self.server.registered_users.remove(self.nickname)
+    
+        # Lock to safely change the client list
+        with self.server.clients_lock:
+            # If this client is in the list
+            if self in self.server.clients:
+                # Remove this client from the list
+                self.server.clients.remove(self)
+
+
+
+    def register_client(self):
+        # If nickname is already taken, inform the client
+        if self.nickname in self.server.registered_users:
+            self.send_message(f":server 433 * {self.nickname} :Nickname is already in use\r\n")
+        else:
+            self.is_registered = True
+            self.server.registered_users.append(self.nickname)
+            self.send_message(f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n")
+
+
+
     def process_message(self, message):
         # A flag to track if the command has been handled
         handled = False  
         
+        # Loop through each command/handler
         for cmd, handler in self.commands.items():
+            # If the start of the message starts with a command
             if message.startswith(cmd):
+                # Use the respective handler method for that command
                 handler(message)
                 handled = True
                 break
     
-        # If the command wasn't found in the command-handler dictionary
+        # If no command matches the message
         if not handled:
+            # Handle the command as unknown
             self.handle_unknown(message)
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
     def handle_cap_ls(self, message=None):
         # Respond to the CAP LS command indicating the server’s capabilities
         self.client_socket.send(b":server CAP * LS :\r\n")
 
     def handle_nick(self, message):
-    # Extract and validate the nickname from the NICK command
-        new_nickname = message.split(' ')[1].strip()
-        old_nickname = self.nickname
+      # Extract and validate the nickname from the NICK command
+      self.nickname = message.split(' ')[1]
 
-        if not self.is_valid_nickname(new_nickname):
-            # Send an error message for invalid nicknames then skips any further processing
-            self.send_message(":server 432 :Erroneous Nickname\r\n")
-            return
+      if not self.is_valid_nickname(self.nickname):
+          # Send an error message for invalid nicknames then skips any further processing
+          self.send_message(":server 432 :Erroneous Nickname\r\n")
+          return
 
-        self.nickname = new_nickname
-        print(f"Nickname set to {self.nickname}")
+      if self.user_received and not self.is_registered:
+          self.register_client()
 
-        # If old_nickname is not None, send the confirmation message
-        if old_nickname:
-            self.send_message(f":{old_nickname} NICK :{new_nickname}\r\n")
+      print(f"Nickname set to {self.nickname}")
 
 
     def handle_user(self, message=None):
         # Mark that the USER command has been received
         self.user_received = True
+        if self.nickname and not self.is_registered:
+            self.register_client()
         print(f"USER received")
 
     def handle_cap_end(self, message=None):
-        # Send a welcome message after capabilities sorted
-        welcome_msg = f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
-        self.send_message(welcome_msg)
+        # Previously was sending welcome message here but now moved to do it upon registration 
+        pass
 
     def handle_unknown(self, message):
         # Sends error msg to client if unknown command
@@ -149,15 +201,49 @@ class IRCClient:
         self.send_message(error_msg)
         
     def handle_join(self, message):
+        # Extract the channel from the message
         channel = message.split(' ')[1]
+        
+        # If the chanel is not in the list, create a new channel
         if channel not in self.channels:
             self.channels.append(channel)
         print(f"{self.nickname} joined {channel}")
+        
+        # Sends message tto the server that X has joined channel
         self.send_message(f":{self.nickname} JOIN :{channel}\r\n")
     
     def handle_ping(self, message):
         ping_data = message.split(' ')[1]
         self.send_message(f"PONG :{ping_data}\r\n")
+        
+    def handle_private_messages(self, message):
+        self.send_message(f":{self.nickname} PRIVMSG :{message}\r\n")    
+
+    def handle_quit(self, message):
+        # Get the quit message if it exists
+        parts = message.split(' ', 1)
+        if len(parts) > 1:
+            quit_msg = parts[1]
+        else:
+            quit_msg = f"{self.nickname} has quit"
+
+        # Notify channels of quit
+        for channel in self.channels:
+            for client in self.server.clients:
+                if channel in client.channels and client != self:
+                    client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
+
+        # Remove this client from any channels they're a part of
+        self.channels = []
+
+        # Inform the client of the QUIT
+        self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
+
+        # Close this client's socket
+        self.client_socket.close()
+
+        # Notify the server to remove this client from active clients
+        self.notify_disconnect()
 
     def handle_client(self):    
         try:
@@ -187,11 +273,8 @@ class IRCClient:
         except Exception as e:
             print(f"Error in client: {e}")
         finally:
-            self.client_socket.close()
-
-    def handle_private_messages(self, message):
-        self.send_message(f":{self.nickname} PRIVMSG :{message}\r\n")
-
+            self.notify_disconnect()
+            
 if __name__ == "__main__":
     server = IRCServer()
     server.start()
