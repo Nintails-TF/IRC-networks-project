@@ -25,23 +25,23 @@ class Socket:
         # This will loop until you CTRL+C
         while True:
             try:
-                text = s.recv(2048).decode()
-                print(text)
+                # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
+                response = s.recv(2048).decode()
+                print(response)
                 # IF PING REQUEST IS MADE, RESPOND WITH PONG
-                self.pong(s, text)  # Call the pong method
+                if response.startswith("PING"):
+                    self.pong(s, response)
+                # ELIF the text has other meaningful text, we can then store it.
             except KeyboardInterrupt:
                 break
 
     # pong will handle ping requests with a corresponding pong
     def pong(self, s, text):
-        # Check if the incoming message is a PING request
-        if text.startswith("PING"):
-            # Extract the PING message
-            ping_message = text.split(" ")[1]
-            
-            # Send a PONG response back to the server
-            response = "PONG " + ping_message + "\r\n"
-            s.send(response.encode())
+        # Extract the PING message
+        ping_message = text.split(" ")[1]
+        # Send a PONG response back to the server
+        response = "PONG " + ping_message + "\r\n"
+        s.send(response.encode())
 
     def getHost(self):
         return self.host
