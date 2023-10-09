@@ -170,18 +170,28 @@ class IRCClient:
         self.client_socket.send(b":server CAP * LS :\r\n")
 
     def handle_nick(self, message):
-      # Extract and validate the nickname from the NICK command
-      self.nickname = message.split(' ')[1]
+        new_nickname = message.split(' ')[1].strip()
+        old_nickname = self.nickname
 
-      if not self.is_valid_nickname(self.nickname):
-          # Send an error message for invalid nicknames then skips any further processing
-          self.send_message(":server 432 :Erroneous Nickname\r\n")
-          return
+        if not self.is_valid_nickname(new_nickname):
+            self.send_message(":server 432 :Erroneous Nickname\r\n")
+            return
 
-      if self.user_received and not self.is_registered:
-          self.register_client()
+        self.nickname = new_nickname
 
-      print(f"Nickname set to {self.nickname}")
+        if self.user_received and not self.is_registered:
+            self.register_client()
+
+        # Notify other clients about the nickname change, if old_nickname exists
+        if old_nickname:
+            notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
+            
+            with self.server.clients_lock:  # Lock for thread safety
+                for client in self.server.clients:
+                    client.send_message(notification_msg)
+        
+        print(f"Nickname set to {self.nickname}")
+
 
 
     def handle_user(self, message=None):
