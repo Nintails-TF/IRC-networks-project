@@ -31,8 +31,9 @@ class Socket:
                 # If we see PING request
                 if response.startswith("PING"):
                     self.pong(s, response) # Respond with pong
-                # ELIF the text has other meaningful text, we can then store it.
-                
+                # ELIF we can get the userlist if we see the 353 IRC code.
+                elif response.contains("353"):
+                    self.userlist(s, response)
             except KeyboardInterrupt:
                 break
 
@@ -43,6 +44,10 @@ class Socket:
         # Send a PONG response back to the server
         response = "PONG " + ping_message + "\r\n"
         s.send(response.encode())
+
+    # userlist will grab the initial userlist and store it.
+    def userlist(self, s, text):
+        print(text) # testing output
 
     def getHost(self):
         return self.host
