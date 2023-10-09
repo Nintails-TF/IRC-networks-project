@@ -31,13 +31,20 @@ class IRCServer:
         return client_socket
 
     def handle_individual_client(self, client_socket):
-        # Make a client instance and manage interactions
+         # Create an IRCClient instance for the given socket
         client = IRCClient(client_socket, self)
+        
+        # Lock to avoid issues with many clients at once.
         self.clients_lock.acquire()
+        
+        # Appending a new client to the list
         try:
             self.clients.append(client)
         finally:
+            # Unlock after appending
             self.clients_lock.release()
+        
+        # Start client tasks        
         client.handle_client()
 
 
@@ -63,6 +70,7 @@ class IRCServer:
             # Close socket when exitting
             self.server_socket.close()
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 class IRCClient:
     def __init__(self, client_socket, server):
@@ -111,11 +119,18 @@ class IRCClient:
         return len(nickname) <= max_length and all(c in allowed_characters for c in nickname[1:])
 
     def notify_disconnect(self):
+        # If the user has a nickname and is registered.
         if self.nickname and self.nickname in self.server.registered_users:
+            # Remove the nickname from list
             self.server.registered_users.remove(self.nickname)
+    
+        # Lock to safely change the client list
         with self.server.clients_lock:
+            # If this client is in the list
             if self in self.server.clients:
+                # Remove this client from the list
                 self.server.clients.remove(self)
+
 
 
     def register_client(self):
@@ -133,16 +148,21 @@ class IRCClient:
         # A flag to track if the command has been handled
         handled = False  
         
+        # Loop through each command/handler
         for cmd, handler in self.commands.items():
+            # If the start of the message starts with a command
             if message.startswith(cmd):
+                # Use the respective handler method for that command
                 handler(message)
                 handled = True
                 break
     
-        # If the command wasn't found in the command-handler dictionary
+        # If no command matches the message
         if not handled:
+            # Handle the command as unknown
             self.handle_unknown(message)
 
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
     def handle_cap_ls(self, message=None):
         # Respond to the CAP LS command indicating the server’s capabilities
@@ -179,10 +199,15 @@ class IRCClient:
         self.send_message(error_msg)
         
     def handle_join(self, message):
+        # Extract the channel from the message
         channel = message.split(' ')[1]
+        
+        # If the chanel is not in the list, create a new channel
         if channel not in self.channels:
             self.channels.append(channel)
         print(f"{self.nickname} joined {channel}")
+        
+        # Sends message tto the server that X has joined channel
         self.send_message(f":{self.nickname} JOIN :{channel}\r\n")
     
     def handle_ping(self, message):
@@ -216,7 +241,7 @@ class IRCClient:
         # Notify the server to remove this client from active clients
         self.notify_disconnect()
 
-    
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
     def handle_client(self):
         try:
@@ -249,9 +274,8 @@ class IRCClient:
             self.client_socket.close()
             self.notify_disconnect()
             
-        
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------#        
             
-
 if __name__ == "__main__":
     server = IRCServer()
     server.start()
