@@ -14,6 +14,7 @@ class IRCServer:
         # Initialize the server socket using IPv6 and TCP protocol
         self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.clients = []
+        self.channels = {}
         self.clients_lock = threading.Lock()
         self.registered_users = []
 
@@ -72,9 +73,13 @@ class IRCServer:
             # Close socket when exitting
             self.server_socket.close()
 
+    def get_or_create_channel(self, channel_name):
+        # If channel exists, return it; otherwise, create a new one.
+        if channel_name not in self.channels:
+            self.channels[channel_name] = Channel(channel_name)
+        return self.channels[channel_name]
 
-# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-
+#-------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 class IRCClient:
     def __init__(self, client_socket, server):
@@ -214,19 +219,22 @@ class IRCClient:
         # Sends error msg to client if unknown command
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
         self.send_message(error_msg)
-
+    
     def handle_join(self, message):
-        # Extract the channel from the message
-        channel = message.split(" ")[1]
+        channel_name = message.split(' ')[1].strip()
+        if not channel_name.startswith('#'):
+            self.send_message(f":server 461 {channel_name} :Not enough parameters\r\n")
+            return
+        # Retrieve or create channel
+        channel = self.server.get_or_create_channel(channel_name)
 
-        # If the chanel is not in the list, create a new channel
-        if channel not in self.channels:
-            self.channels.append(channel)
-        print(f"{self.nickname} joined {channel}")
-
-        # Sends message tto the server that X has joined channel
-        self.send_message(f":{self.nickname} JOIN :{channel}\r\n")
-
+        # Check if already in the channel
+        if channel_name not in self.channels:
+            # Add client to channel
+            channel.add_client(self) 
+             # Update client's list of channels
+            self.channels[channel_name] = channel
+            
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
         self.send_message(f"PONG :{ping_data}\r\n")
@@ -319,6 +327,25 @@ class IRCClient:
         finally:
             self.notify_disconnect()
 
+class Channel:
+    def __init__(self, name):
+        self.name = name
+        # List of clients in this channel
+        self.clients = []
+
+    def add_client(self, client):
+        if client not in self.clients:
+            self.clients.append(client)
+            client.send_message(f":{client.nickname} JOIN :{self.name}\r\n")
+
+    def remove_client(self, client):
+        self.clients.remove(client)
+        client.send_message(f":{client.nickname} PART :{self.name}\r\n")
+
+    def broadcast(self, message, origin_client):
+        for client in self.clients:
+            if client != origin_client:
+                client.send_message(f":{origin_client.nickname} PRIVMSG {self.name} :{message}\r\n")
 
 if __name__ == "__main__":
     server = IRCServer()
