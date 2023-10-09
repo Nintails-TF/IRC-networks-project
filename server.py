@@ -14,6 +14,7 @@ class IRCServer:
         self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.clients = []
         self.clients_lock = threading.Lock()
+        self.registered_users = []
         
     def bind_and_listen(self):
         # Assigns the socket to the specified host and port number
@@ -32,9 +33,13 @@ class IRCServer:
     def handle_individual_client(self, client_socket):
         # Make a client instance and manage interactions
         client = IRCClient(client_socket, self)
-        with self.clients_lock:
+        self.clients_lock.acquire()
+        try:
             self.clients.append(client)
+        finally:
+            self.clients_lock.release()
         client.handle_client()
+
 
     def start(self):
         try:
@@ -67,6 +72,7 @@ class IRCClient:
         self.channels = []
         self.user_received = False
         self.buffer = ""
+        self.is_registered = False
         
         # Command-handler mapping
         self.commands = {
@@ -105,9 +111,23 @@ class IRCClient:
         return len(nickname) <= max_length and all(c in allowed_characters for c in nickname[1:])
 
     def notify_disconnect(self):
-            with self.server.clients_lock:
-                if self in self.server.clients:
-                    self.server.clients.remove(self)
+        if self.nickname and self.nickname in self.server.registered_users:
+            self.server.registered_users.remove(self.nickname)
+        with self.server.clients_lock:
+            if self in self.server.clients:
+                self.server.clients.remove(self)
+
+
+    def register_client(self):
+        # If nickname is already taken, inform the client
+        if self.nickname in self.server.registered_users:
+            self.send_message(f":server 433 * {self.nickname} :Nickname is already in use\r\n")
+        else:
+            self.is_registered = True
+            self.server.registered_users.append(self.nickname)
+            self.send_message(f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n")
+
+
 
     def process_message(self, message):
         # A flag to track if the command has been handled
@@ -131,21 +151,27 @@ class IRCClient:
     def handle_nick(self, message):
         # Extract and validate the nickname from the NICK command
         self.nickname = message.split(' ')[1]
+        
         if not self.is_valid_nickname(self.nickname):
             # Send an error message for invalid nicknames then skips any further processing
             self.send_message(":server 432 :Erroneous Nickname\r\n")
             return
+        
+        if self.user_received and not self.is_registered:
+            self.register_client()
+
         print(f"Nickname set to {self.nickname}")
 
     def handle_user(self, message=None):
         # Mark that the USER command has been received
         self.user_received = True
+        if self.nickname and not self.is_registered:
+            self.register_client()
         print(f"USER received")
 
     def handle_cap_end(self, message=None):
-        # Send a welcome message after capabilities sorted
-        welcome_msg = f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
-        self.send_message(welcome_msg)
+        # Previously was sending welcome message here but now moved to do it upon registration 
+        pass
 
     def handle_unknown(self, message):
         # Sends error msg to client if unknown command

@@ -30,7 +30,10 @@ A basic implementation of an Internet Relay Chat (IRC) server and a bot using Py
 
 ## Client Connection
 
-To test, you can use any IRC client to connect to the server using `localhost` and port `6667`. Set your desired nickname and username to initiate the connection.
+
+
+
+
 
 ## Contributing
 
