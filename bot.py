@@ -47,7 +47,7 @@ class Socket:
 
     # userlist will grab the initial userlist and store it.
     def userlist(self, s, text):
-        print(text) # testing output
+        print(text.split("353")) # testing output
 
     def getHost(self):
         return self.host
