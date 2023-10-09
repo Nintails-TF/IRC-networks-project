@@ -27,11 +27,12 @@ class Socket:
             try:
                 # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
                 response = s.recv(2048).decode()
-                print(response)
-                # IF PING REQUEST IS MADE, RESPOND WITH PONG
+                print(response) # Printing out response for testing
+                # If we see PING request
                 if response.startswith("PING"):
-                    self.pong(s, response)
+                    self.pong(s, response) # Respond with pong
                 # ELIF the text has other meaningful text, we can then store it.
+                
             except KeyboardInterrupt:
                 break
 
