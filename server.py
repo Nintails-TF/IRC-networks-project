@@ -1,4 +1,5 @@
 import socket
+import threading
 
 class IRCServer:
     # Set the Host to IPv6 addressing scheme
@@ -11,7 +12,9 @@ class IRCServer:
     def __init__(self):
         # Initialize the server socket using IPv6 and TCP protocol
         self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-    
+        self.clients = []
+        self.clients_lock = threading.Lock()
+        
     def bind_and_listen(self):
         # Assigns the socket to the specified host and port number
         self.server_socket.bind((self.HOST, self.PORT))
@@ -28,7 +31,9 @@ class IRCServer:
 
     def handle_individual_client(self, client_socket):
         # Make a client instance and manage interactions
-        client = IRCClient(client_socket)
+        client = IRCClient(client_socket, self)
+        with self.clients_lock:
+            self.clients.append(client)
         client.handle_client()
 
     def start(self):
@@ -39,7 +44,7 @@ class IRCServer:
             # Keeps the server running
             while True:  
                 client_socket = self.accept_connection()
-                self.handle_individual_client(client_socket)
+                threading.Thread(target=self.handle_individual_client, args=(client_socket,)).start()
 
         # Specific handling for socket errors
         except socket.error as se:
@@ -55,8 +60,9 @@ class IRCServer:
 
 
 class IRCClient:
-    def __init__(self, client_socket):
+    def __init__(self, client_socket, server):
         self.client_socket = client_socket
+        self.server = server
         self.nickname = None
         self.channels = []
         self.user_received = False
@@ -69,8 +75,11 @@ class IRCClient:
             'USER': self.handle_user,
             'CAP END': self.handle_cap_end,
             'JOIN': self.handle_join,
-            'PING': self.handle_ping
+            'PING': self.handle_ping,
+            'QUIT': self.handle_quit
         }
+        
+
     
     # Sends a message to the client and logs it
     def send_message(self, message):
@@ -94,6 +103,11 @@ class IRCClient:
     
         # Ensure the nickname length and subsequent characters are valid
         return len(nickname) <= max_length and all(c in allowed_characters for c in nickname[1:])
+
+    def notify_disconnect(self):
+            with self.server.clients_lock:
+                if self in self.server.clients:
+                    self.server.clients.remove(self)
 
     def process_message(self, message):
         # A flag to track if the command has been handled
@@ -138,16 +152,33 @@ class IRCClient:
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
         self.send_message(error_msg)
         
-    def handle_join(self, message):
-        channel = message.split(' ')[1]
-        if channel not in self.channels:
-            self.channels.append(channel)
-        print(f"{self.nickname} joined {channel}")
-        self.send_message(f":{self.nickname} JOIN :{channel}\r\n")
+    def handle_quit(self, message):
+        # Get the quit message if it exists
+        parts = message.split(' ', 1)
+        if len(parts) > 1:
+            quit_msg = parts[1]
+        else:
+            quit_msg = f"{self.nickname} has quit"
+
+        # Notify channels of quit
+        for channel in self.channels:
+            for client in self.server.clients:
+                if channel in client.channels and client != self:
+                    client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
+
+        # Remove this client from any channels they're a part of
+        self.channels = []
+
+        # Inform the client of the QUIT
+        self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
+
+        # Close this client's socket
+        self.client_socket.close()
+
+        # Notify the server to remove this client from active clients
+        self.notify_disconnect()
+
     
-    def handle_ping(self, message):
-        ping_data = message.split(' ')[1]
-        self.send_message(f"PONG :{ping_data}\r\n")
 
     def handle_client(self):
         try:
@@ -178,7 +209,10 @@ class IRCClient:
             print(f"Error in client: {e}")
         finally:
             self.client_socket.close()
-
+            self.notify_disconnect()
+            
+        
+            
 
 if __name__ == "__main__":
     server = IRCServer()
