@@ -240,36 +240,46 @@ class IRCClient:
         self.send_message(f"PONG :{ping_data}\r\n")
 
     def handle_private_messages(self, message):
+        # Split message into components
         parts = message.split(" ", 2)
-
+        
         if len(parts) < 3:
             return  # Invalid message format
+        
+        target = parts[1]
+        message_content = parts[2][1:]  # Remove the leading ':'
 
-        target_nickname = parts[1]
-        message_content = parts[2]
-
-        # Find the target client by their nickname
-        target_client = None
-        with self.server.clients_lock:
-            for client in self.server.clients:
-                if client.nickname == target_nickname:
-                    target_client = client
-                    break
-
-        # If the target client is found, send the private message
-        if target_client:
-            private_message = (
-                f":{self.nickname} PRIVMSG {target_nickname} :{message_content}\r\n"
-            )
-            self.send_message(private_message)
-            target_client.send_message(private_message)
+        # If the target starts with '#', it's a channel
+        if target.startswith('#'):
+            with self.server.channels_lock:  # Assuming you have a channels_lock
+                channel = self.server.channels.get(target, None)
+            
+            if channel:
+                # Broadcast the message to all clients in the channel
+                channel.broadcast(message_content, self)
+            else:
+                # No such channel error
+                error_message = f":server 403 {self.nickname} {target} :No such channel\r\n"
+                self.send_message(error_message)
 
         else:
-            # Target client not found, send an error message to the sender
-            error_message = (
-                f":server 401 {self.nickname} {target_nickname} :No such nickname\r\n"
-            )
-            self.send_message(error_message)
+            # It's a direct message to a user
+            target_client = None
+            with self.server.clients_lock:
+                for client in self.server.clients:
+                    if client.nickname == target:
+                        target_client = client
+                        break
+
+            # If the target client is found, send the private message
+            if target_client:
+                private_message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
+                target_client.send_message(private_message)
+            else:
+                # Target client not found, send an error message to the sender
+                error_message = f":server 401 {self.nickname} {target} :No such nickname\r\n"
+                self.send_message(error_message)
+
 
     def handle_quit(self, message):
         # Get the quit message if it exists
