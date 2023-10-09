@@ -13,6 +13,7 @@ class IRCServer:
         # Initialize the server socket using IPv6 and TCP protocol
         self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.clients = []
+        self.channels = {}
         self.clients_lock = threading.Lock()
         self.registered_users = []
         
@@ -69,6 +70,12 @@ class IRCServer:
         finally:
             # Close socket when exitting
             self.server_socket.close()
+
+    def get_or_create_channel(self, channel_name):
+        # If channel exists, return it; otherwise, create a new one.
+        if channel_name not in self.channels:
+            self.channels[channel_name] = Channel(channel_name)
+        return self.channels[channel_name]
 
 #-------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
@@ -292,11 +299,13 @@ class IRCClient:
 class Channel:
     def __init__(self, name):
         self.name = name
+        # List of clients in this channel
         self.clients = []
 
     def add_client(self, client):
-        self.clients.append(client)
-        client.send_message(f":{client.nickname} JOIN :{self.name}\r\n")
+        if client not in self.clients:
+            self.clients.append(client)
+            client.send_message(f":{client.nickname} JOIN :{self.name}\r\n")
 
     def remove_client(self, client):
         self.clients.remove(client)
