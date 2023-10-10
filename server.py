@@ -86,7 +86,7 @@ class IRCClient:
         self.client_socket = client_socket
         self.server = server
         self.nickname = None
-        self.channels = {}
+        self.channels = []
         self.user_received = False
         self.buffer = ""
         self.is_registered = False
@@ -245,42 +245,31 @@ class IRCClient:
         if len(parts) < 3:
             return  # Invalid message format
 
-        target = parts[1]
+        target_nickname = parts[1]
         message_content = parts[2]
 
-        # If the target is targeting a channel
-        if target.startswith("#"):
-            # Check if the client is a part of that channel
-            if target in self.channels:
-                for client in self.channels[target].clients:
-                    # Assure the message is not sent back to the user
-                    if client != self:
-                        # Forward the message to all clients within the channel
-                        private_message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
-                        client.send_message(private_message)
-            else:
-                # User is not a member of the channel or channel does not exist
-                error_message = f":server 403 {self.nickname} {target} :No such channel or not a member\r\n"
-                self.send_message(error_message)
+        # Find the target client by their nickname
+        target_client = None
+        with self.server.clients_lock:
+            for client in self.server.clients:
+                if client.nickname == target_nickname:
+                    target_client = client
+                    break
 
-        # If it's targeting an individual by nickname
+        # If the target client is found, send the private message
+        if target_client:
+            private_message = (
+                f":{self.nickname} PRIVMSG {target_nickname} :{message_content}\r\n"
+            )
+            self.send_message(private_message)
+            target_client.send_message(private_message)
+
         else:
-            # Find the target client by their nickname
-            target_client = None
-            with self.server.clients_lock:
-                for client in self.server.clients:
-                    if client.nickname == target:
-                        target_client = client
-                        break
-
-            if target_client:
-                private_message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
-                target_client.send_message(private_message)
-            else:
-                # Target client not found, send an error message to the sender
-                error_message = f":server 401 {self.nickname} {target} :No such nickname\r\n"
-                self.send_message(error_message)
-
+            # Target client not found, send an error message to the sender
+            error_message = (
+                f":server 401 {self.nickname} {target_nickname} :No such nickname\r\n"
+            )
+            self.send_message(error_message)
 
     def handle_quit(self, message):
         # Get the quit message if it exists
@@ -291,11 +280,10 @@ class IRCClient:
             quit_msg = f"{self.nickname} has quit"
 
         # Notify channels of quit
-        for channel_name, channel in self.channels.items():
+        for channel in self.channels:
             for client in self.server.clients:
-                if channel_name in client.channels and client != self:
+                if channel in client.channels and client != self:
                     client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
-
 
         # Remove this client from any channels they're a part of
         self.channels = []
