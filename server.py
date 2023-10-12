@@ -4,7 +4,7 @@ import time
 NICKNAME_MAX_LENGTH = 15
 ALLOWED_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}")
 STARTING_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-TIMEOUT = 100
+
 
 class IRCServer:
     # Set the Host to IPv6 addressing scheme
@@ -120,7 +120,7 @@ class IRCServer:
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 class IRCClient:
-    
+    TIMEOUT = 100
     def __init__(self, client_socket, server):
         self.client_socket = client_socket
         self.server = server
@@ -143,7 +143,8 @@ class IRCClient:
             "QUIT": self.handle_quit,
             "WHO": self.handle_who,
             "MODE": self.handle_mode,
-            "DIE": self.handle_die
+            "KICK": self.handle_kick,
+            "MOTD": self.handle_motd
         }
 
     # Sends a message to the client and logs it
@@ -415,9 +416,6 @@ class IRCClient:
     def handle_mode(self, message):
         # Will be supported later but now just send not supported
         self.send_message(":server 502 :MODE command is not supported\r\n")
-        
-    def handle_die(self, message=None):
-        self.server.shutdown_server()
     
     # Not yet implemented
     def handle_kick(self, message=None):
