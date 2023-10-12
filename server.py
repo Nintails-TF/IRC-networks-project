@@ -74,11 +74,14 @@ class IRCServer:
             self.server_socket.close()
 
     def get_or_create_channel(self, channel_name):
-         # If channel exists, return it; otherwise, create a new one.
+        # If channel exists, return it; otherwise, create a new one.
         if channel_name not in self.channels:
             self.channels[channel_name] = Channel(channel_name)
         return self.channels[channel_name]
-#-------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+
+# -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+
 
 class IRCClient:
     def __init__(self, client_socket, server):
@@ -100,6 +103,7 @@ class IRCClient:
             "PING": self.handle_ping,
             "PRIVMSG": self.handle_private_messages,
             "QUIT": self.handle_quit,
+            "WHO": self.handle_who,
         }
 
     # Sends a message to the client and logs it
@@ -145,7 +149,6 @@ class IRCClient:
                 self.server.clients.remove(self)
         finally:
             self.server.clients_lock.release()
-       
 
     def register_client(self):
         # If nickname is already taken, inform the client
@@ -210,7 +213,6 @@ class IRCClient:
 
         print(f"Nickname set to {self.nickname}")
 
-
     def handle_user(self, message=None):
         # Mark that the USER command has been received
         self.user_received = True
@@ -226,11 +228,10 @@ class IRCClient:
         # Sends error msg to client if unknown command
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
         self.send_message(error_msg)
-    
-            
+
     def handle_join(self, message):
-        channel_name = message.split(' ')[1].strip()
-        if not channel_name.startswith('#'):
+        channel_name = message.split(" ")[1].strip()
+        if not channel_name.startswith("#"):
             self.send_message(f":server 461 {channel_name} :Not enough parameters\r\n")
             return
         channel = self.server.get_or_create_channel(channel_name)
@@ -238,9 +239,10 @@ class IRCClient:
         # Check if already in the channel
         if channel_name not in self.channels:
             # Add client to channel
-            channel.add_client(self)  
+            channel.add_client(self)
             # Update client's list of channels
             self.channels[channel_name] = channel
+            
         # Broadcast the join message to all clients in the channel
         join_message = f":{self.nickname} JOIN :{channel_name}\r\n"
         for client in channel.clients:
@@ -254,14 +256,14 @@ class IRCClient:
     def handle_private_messages(self, message):
         # Split the message into three parts: command, target, and content
         parts = message.split(" ", 2)
-    
+
         # Validation of if the message is in and invalid format or not
         if len(parts) < 3:
             return
-    
+
         # Colon was appearing at the start of message content so removing if there
         # Extract the target of the message and message content from the split parts
-        target, message_content = parts[1], parts[2].lstrip(':')  
+        target, message_content = parts[1], parts[2].lstrip(":")
 
         # Channel message handling (Whole channel)
         if target.startswith("#"):
@@ -273,12 +275,14 @@ class IRCClient:
     def _handle_channel_message(self, target, message_content):
         # If the target channel isn't recognized or the user isn't a member, send an error
         if target not in self.channels:
-            self.send_message(f":server 403 {self.nickname} {target} :No such channel or not a member\r\n")
+            self.send_message(
+                f":server 403 {self.nickname} {target} :No such channel or not a member\r\n"
+            )
             return
-        
+
         # Construct the message to be sent to the channel
         message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
-        
+
         # Iterate through clients in the target channel and send the message to each one
         for client in self.channels[target].clients:
             # Except for the sender of message
@@ -288,14 +292,16 @@ class IRCClient:
     def _handle_user_message(self, target, message_content):
         # Search for the target client by their nickname
         target_client = self._find_client_by_nickname(target)
-    
+
         # If the target client was found, send them the message
         if target_client:
             message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
             target_client.send_message(message)
         else:
             # If not found, inform the sender with an error message
-            self.send_message(f":server 401 {self.nickname} {target} :No such nickname\r\n")
+            self.send_message(
+                f":server 401 {self.nickname} {target} :No such nickname\r\n"
+            )
 
     def _find_client_by_nickname(self, nickname):
         target_client = None
@@ -311,9 +317,8 @@ class IRCClient:
         finally:
             # Release the lock after the search is done
             self.server.clients_lock.release()
-    
-        return target_client
 
+        return target_client
 
     def handle_quit(self, message):
         # Get the quit message if it exists
@@ -328,7 +333,6 @@ class IRCClient:
             for client in self.server.clients:
                 if channel_name in client.channels and client != self:
                     client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
-
 
         # Remove this client from any channels they're a part of
         self.channels = []
@@ -372,6 +376,42 @@ class IRCClient:
         finally:
             self.notify_disconnect()
 
+    def handle_who(self, message):
+        # If the message is not in correct format
+        if len(message.split(" ")) < 2:
+            self.send_message(
+                f":server 461 {self.nickname} WHO :Not enough parameters\r\n"
+            )
+            return
+
+        # Get the channel name
+        channel_name = message.split(" ")[1].strip()
+
+        # If the channel doesn't exist
+        if channel_name not in self.channels:
+            self.send_message(
+                f":server 403 {self.nickname} {channel_name} :No such channel\r\n"
+            )
+            return
+
+        # Get the channel object
+        channel = self.channels[channel_name]
+
+        # Get the list of clients in the channel
+        clients = channel.clients
+
+        # Send the list of clients to the user
+        for client in clients:
+            self.send_message(
+                f":server 352 {self.nickname} {channel_name} {client.nickname} {client.nickname} {client.client_socket.getpeername()[0]} {self.nickname} H :0 {client.nickname}\r\n"
+            )
+
+        # Send the end of WHO list message
+        self.send_message(
+            f":server 315 {self.nickname} {channel_name} :End of WHO list\r\n"
+        )
+
+
 class Channel:
     def __init__(self, name):
         self.name = name
@@ -390,7 +430,9 @@ class Channel:
     def broadcast(self, message, origin_client):
         for client in self.clients:
             if client != origin_client:
-                client.send_message(f":{origin_client.nickname} PRIVMSG {self.name} :{message}\r\n")
+                client.send_message(
+                    f":{origin_client.nickname} PRIVMSG {self.name} :{message}\r\n"
+                )
 
 
 if __name__ == "__main__":
