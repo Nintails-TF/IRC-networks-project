@@ -33,9 +33,11 @@ class Socket:
                 if response.startswith("PING"):
                     self.pong(s, response) # Respond with pong
                 elif "353" in response: # ELIF we can get the userlist if we see the 353 IRC code.
-                    i1 = response.index("353")
-                    i2 = response.index("\n")
-                    response = response[i1:i2] 
+                    s1 = "353"
+                    s2 = "\n"
+                    i1 = response.index(s1)
+                    i2 = response.index(s2)
+                    response = response[i1 + len(s1) + 1: i2] 
                     self.userlist(response, swagBot)
             except KeyboardInterrupt:
                 break
