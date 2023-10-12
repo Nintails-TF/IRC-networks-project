@@ -37,7 +37,7 @@ class Socket:
                     self.pong(s, response) # Respond with pong
                 elif "353" in response: # When we see the 353 (userlist) IRC code.
                     response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
-                    self.initUserlist(response, bot) # generate a userlist
+                    bot.initUserlist(response) # generate a userlist
                 # IF THE BOT IS PRIVATE MESSAGED
                 elif "PRIVMSG" in response:
                     bot.funnyfact(s, response)
@@ -49,10 +49,6 @@ class Socket:
         ping_message = text.split(" ")[1]
         response = "PONG " + ping_message + "\r\n"
         s.send(response.encode())
-
-    def userlist(self, s, text, bot):
-        print(text.split("353"))
-        bot.initUserlist(text)
 
     def getHost(self):
         return self.host
@@ -122,8 +118,11 @@ class Bot:
 
     # initUserlist will grab the initial userlist and store it.
     def initUserlist(self, users):
-        userlist = users.split("353")
-        print(userlist)
+        userlist = users[0].replace("\r", "") # turning array into string and removing \r
+        # Split the userlist at the : and " "
+        userlist = userlist.split(":")
+        userlist = userlist[1].split(" ")
+        self.userlist = userlist
 
 def main():
     menu = Menu()
