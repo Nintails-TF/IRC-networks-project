@@ -53,7 +53,8 @@ class Socket:
         userlist = users[0]
         print("This is the text in userlist "+ users[0])
         # Split at the : and use " " as the delimiter
-        userlist = userlist.split(":").split(" ")
+        userlist = userlist.split(":")
+        userlist = userlist[1].split(" ")
         print(userlist)
 
         # SET BOTS USERLIST TO USERLIST
