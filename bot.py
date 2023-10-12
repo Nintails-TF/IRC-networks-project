@@ -25,23 +25,17 @@ class Socket:
             s.send(bot.botJoinChannel())
             self.keepalive(s, bot)
 
-    # keepalive will keep the bot in the IRC server
     def keepalive(self, s, bot):
-        # This will loop until you CTRL+C
         while True:
             try:
-                # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
                 response = s.recv(2048).decode()
-                # print(response) # Printing out response for testing
-                if response.startswith("PING"): # If we see PING request
-                    self.pong(s, response) # Respond with pong
-                elif "353" in response: # When we see the 353 (userlist) IRC code.
-                    response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
-                    bot.initUserlist(response) # generate a userlist
-                # IF THE BOT IS PRIVATE MESSAGED
+                print(response)
+                if response.startswith("PING"):
+                    self.pong(s, response)
+                elif "353" in response:
+                    self.userlist(s, response, bot)
                 elif "PRIVMSG" in response:
-                    bot.funnyfact(s, response)
-                # IF USERS CONNECT/DISCONNECT
+                    bot.handlePrivateMessage(s, response)
             except KeyboardInterrupt:
                 break
 
@@ -49,6 +43,10 @@ class Socket:
         ping_message = text.split(" ")[1]
         response = "PONG " + ping_message + "\r\n"
         s.send(response.encode())
+
+    def userlist(self, s, text, bot):
+        print(text.split("353"))
+        bot.initUserlist(text)
 
     def getHost(self):
         return self.host
@@ -109,18 +107,15 @@ class Bot:
         message_content = text.split('PRIVMSG')[1].strip()
 
         # Construct a response message
-        response = f'PRIVMSG {self.channel} :Hello, {sender}! This is a response to your private message: {message_content}\r\n'
+        response = f'PRIVMSG {sender} :Hello, {sender}! This is a response to your private message: {message_content}\r\n'
 
         # Send the response message
         s.send(response.encode())
 
     # initUserlist will grab the initial userlist and store it.
     def initUserlist(self, users):
-        userlist = users[0].replace("\r", "") # turning array into string and removing \r
-        # Split the userlist at the : and " "
-        userlist = userlist.split(":")
-        userlist = userlist[1].split(" ")
-        self.userlist = userlist
+        userlist = users.split("353")
+        print(userlist)
 
 def main():
     menu = Menu()
