@@ -48,15 +48,13 @@ class Socket:
 
     # userlist will grab the initial userlist and store it.
     def userlist(self, users, bot):
-        userlist = users[0].replace("\r", "") # turning array into string
+        userlist = users[0].replace("\r", "") # turning array into string and removing \r
         # Split the userlist at the : and " "
         userlist = userlist.split(":")
         userlist = userlist[1].split(" ")
-        # We now have a list of users, need to strip the \r character from the final value
-        print(userlist)
-
+        # print(userlist) Testing userlist
         # SET BOTS USERLIST TO USERLIST
-        bot.userlist = users
+        bot.userlist = userlist
         
     def getHost(self):
         return self.host
