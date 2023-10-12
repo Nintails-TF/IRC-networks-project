@@ -9,10 +9,32 @@ realname = "Swag"
 nickname = "SwagBot"
 channel = "#test"
 
-"""
-The socket class is responsible for handling the network connections between the Bot (client) and
-the server.
-"""
+class Bot:
+    def __init__(self, nickname, realname, channel):
+        self.nickname = nickname
+        self.realname = realname
+        self.channel = channel
+        self.userlist = []
+
+    def botRegistration(self):
+        user = "NICK " + self.nickname + "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname + "\r\n"
+        return user.encode()
+
+    def botJoinChannel(self):
+        join = "JOIN " + self.channel + "\r\n"
+        return join.encode()
+
+    def initUserlist(self, users):
+        userlist = users.split("353")
+        print(userlist)
+
+    def funnyfact(self, s, text):
+        print(text)
+        username = text.split("!")[0]
+        print(username)
+        response = "PRIVMSG " + username + " :Here's a fun fact!\r\n"
+        s.send(response.encode())
+
 class Socket:
     def __init__(self, host, port):
         self.host = host
@@ -60,14 +82,6 @@ class Socket:
     def setPort(self, port):
         self.port = port
 
-"""
-The Menu class is responsible for handling user input via the CLI/terminal, ensuring that
-users can input flags to modify parameters. e.g.
-
-python bot.py --host fc00:1337::19
-
-would set the IPv6 address to connect to.
-"""
 class Menu:
     def __init__(self):
         self.parser = argparse.ArgumentParser(description="IRC Bot Configuration")
@@ -79,48 +93,6 @@ class Menu:
 
     def parse_arguments(self):
         return self.parser.parse_args()
-
-"""
-The Bot class is responsible for holding all the functions that the bot must perform. e.g. getting registration details, 
-sending messages, etc.
-"""
-class Bot:
-    def __init__(self, nickname, realname, channel):
-        self.nickname = nickname
-        self.realname = realname
-        self.channel = channel
-        self.userlist = []
-
-    # @return a formatted NICK and USER command
-    def botRegistration(self):
-        user = "NICK " + self.nickname + "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname + "\r\n"
-        return user.encode()
-
-    # @return a formatted join statement to join the test channel.
-    def botJoinChannel(self):
-        join = "JOIN " + self.channel + "\r\n"
-        return join.encode()
-
-    def funnyfact(self, s, text):
-        sender = text.split('!')[0][1:]
-        message_content = text.split('PRIVMSG')[1].strip()
-        
-        print(f"Received private message from {sender}: {message_content}")
-        
-        # Extract the recipient's username from the message content
-        recipient = message_content.split(" ")[0]
-        
-        print(f"Recipient: {recipient}")
-        
-        # Respond to the private message
-        response = f'PRIVMSG {recipient} :Hello, {sender}! This is a response to your private message: {message_content}\r\n'
-        print(f"Sending response: {response}")
-        s.send(response.encode())
-
-    # initUserlist will grab the initial userlist and store it.
-    def initUserlist(self, users):
-        userlist = users.split("353")
-        print(userlist)
 
 def main():
     menu = Menu()
