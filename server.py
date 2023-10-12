@@ -349,8 +349,8 @@ class IRCClient:
                 if channel_name in client.channels and client != self:
                     client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
 
-        # Remove this client from any channels they're a part of
-        self.channels = []
+        # Clear the channels dictionary
+        self.channels.clear()  
 
         # Inform the client of the QUIT
         self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
