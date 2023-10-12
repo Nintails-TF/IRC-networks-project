@@ -35,7 +35,7 @@ class Socket:
                 elif "353" in response:
                     self.userlist(s, response, bot)
                 elif "PRIVMSG" in response:
-                    bot.handlePrivateMessage(s, response)
+                    bot.funnyfact(s, response)
             except KeyboardInterrupt:
                 break
 
