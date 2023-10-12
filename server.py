@@ -111,6 +111,7 @@ class IRCClient:
             "PRIVMSG": self.handle_private_messages,
             "QUIT": self.handle_quit,
             "WHO": self.handle_who,
+            "MODE": self.handle_mode
         }
 
     # Sends a message to the client and logs it
@@ -416,7 +417,11 @@ class IRCClient:
             self.send_message(f":server 352 {self.nickname} {channel_name} {client.nickname} ...\r\n")
 
         self.send_message(f":server 315 {self.nickname} {channel_name} :End of WHO list\r\n")
-
+    
+    def handle_mode(self, message):
+        # Will be supported later but now just send not supported
+        self.send_message(":server 502 :MODE command is not supported\r\n")
+    
 
 class Channel:
     def __init__(self, name):
