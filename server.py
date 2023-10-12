@@ -1,5 +1,8 @@
 import socket
 import threading
+NICKNAME_MAX_LENGTH = 15
+ALLOWED_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}")
+STARTING_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 
 class IRCServer:
@@ -112,31 +115,21 @@ class IRCClient:
 
     # Sends a message to the client and logs it
     def send_message(self, message):
-        print(f"Sending:\n{message}")
-        self.client_socket.send(message.encode("utf-8"))
+        try:
+            print(f"Sending:\n{message}")
+            self.client_socket.send(message.encode("utf-8"))
+        except Exception as e:
+            print(f"An error occurred while sending message: {e}")
 
     # Checks for valid nickname according to IRC protocol
     def is_valid_nickname(self, nickname):
-        # Maximum length of nickname
-        max_length = 15
-        # Defines set of allowed characters in a nickname
-        allowed_characters = set(
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}"
-        )
-
-        # Defines set of characters a nickname can start with
-        starting_characters = set(
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        )
 
         # Ensure it starts with a valid character
-        if nickname[0] not in starting_characters:
+        if (nickname[0] not in STARTING_CHARACTERS) or \
+           (len(nickname) > NICKNAME_MAX_LENGTH) or \
+           (not all(c in ALLOWED_CHARACTERS for c in nickname[1:])):
             return False
-
-        # Ensure the nickname length and subsequent characters are valid
-        return len(nickname) <= max_length and all(
-            c in allowed_characters for c in nickname[1:]
-        )
+        return True
 
     def notify_disconnect(self):
         # If the user has a nickname and is registered.
