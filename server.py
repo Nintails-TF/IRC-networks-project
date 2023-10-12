@@ -1,5 +1,8 @@
 import socket
 import threading
+NICKNAME_MAX_LENGTH = 15
+ALLOWED_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}")
+STARTING_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 
 class IRCServer:
@@ -64,6 +67,10 @@ class IRCServer:
         # Specific handling for socket errors
         except socket.error as se:
             print(f"Socket error in client: {se}")
+            
+        # Catch value errror
+        except ValueError as ve:
+            print(f"Value error: {ve}")
 
         # Catch all other exceptions
         except Exception as e:
@@ -108,31 +115,20 @@ class IRCClient:
 
     # Sends a message to the client and logs it
     def send_message(self, message):
-        print(f"Sending:\n{message}")
-        self.client_socket.send(message.encode("utf-8"))
+        try:
+            print(f"Sending:\n{message}")
+            self.client_socket.send(message.encode("utf-8"))
+        except Exception as e:
+            print(f"An error occurred while sending message: {e}")
 
     # Checks for valid nickname according to IRC protocol
     def is_valid_nickname(self, nickname):
-        # Maximum length of nickname
-        max_length = 15
-        # Defines set of allowed characters in a nickname
-        allowed_characters = set(
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}"
-        )
-
-        # Defines set of characters a nickname can start with
-        starting_characters = set(
-            "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        )
-
         # Ensure it starts with a valid character
-        if nickname[0] not in starting_characters:
+        if (nickname[0] not in STARTING_CHARACTERS) or \
+           (len(nickname) > NICKNAME_MAX_LENGTH) or \
+           (not all(c in ALLOWED_CHARACTERS for c in nickname[1:])):
             return False
-
-        # Ensure the nickname length and subsequent characters are valid
-        return len(nickname) <= max_length and all(
-            c in allowed_characters for c in nickname[1:]
-        )
+        return True
 
     def notify_disconnect(self):
         # If the user has a nickname and is registered.
@@ -229,25 +225,44 @@ class IRCClient:
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
         self.send_message(error_msg)
 
-    def handle_join(self, message):
-        channel_name = message.split(" ")[1].strip()
-        if not channel_name.startswith("#"):
-            self.send_message(f":server 461 {channel_name} :Not enough parameters\r\n")
-            return
-        channel = self.server.get_or_create_channel(channel_name)
+    def broadcast_to_all_clients(self, message, old_nickname):
+        # Lock for thread safety
+        self.server.clients_lock.acquire()  
+        try:
+            for client in self.server.clients:
+                # Avoid sending back to the sender
+                if client.nickname != old_nickname:  
+                    client.send_message(message)
+        finally:
+            self.server.clients_lock.release()
 
-        # Check if already in the channel
+    def handle_join(self, message):
+        # Get channel name the user is attempting from the message
+        channel_name = message.split(" ")[1].strip()
+        if channel_name.startswith("#"):
+            # Join channel if channel name starts with # so is valid
+            self.join_channel(channel_name)
+        else:
+            # If the users input is not valid for channel joining
+            self.send_message(f":server 461 {channel_name} :Not enough parameters\r\n")
+
+    def join_channel(self, channel_name):
+        # Retrieve channel or create it
+        channel = self.server.get_or_create_channel(channel_name)
+        
+        # If channel does not exist in the users list of channels
         if channel_name not in self.channels:
-            # Add client to channel
+            # Add user to the channel
             channel.add_client(self)
-            # Update client's list of channels
             self.channels[channel_name] = channel
+        
+            join_message = f":{self.nickname} JOIN :{channel_name}\r\n"
             
-        # Broadcast the join message to all clients in the channel
-        join_message = f":{self.nickname} JOIN :{channel_name}\r\n"
-        for client in channel.clients:
-            if client != self:  # We do not want to send the join message to the joining user itself.
-                client.send_message(join_message)
+            # Send joining message to channel
+            for client in channel.clients:
+                # Avoid sending to the joining user
+                if client != self:  
+                    client.send_message(join_message)
 
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
@@ -369,7 +384,11 @@ class IRCClient:
         # Specific handling for socket errors
         except socket.error as se:
             print(f"Socket error in client: {se}")
-
+        
+        # Catch value errror
+        except ValueError as ve:
+            print(f"Value error: {ve}")
+        
         # Catch all other exceptions
         except Exception as e:
             print(f"Error in client: {e}")
