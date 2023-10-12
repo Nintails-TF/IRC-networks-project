@@ -123,7 +123,6 @@ class IRCClient:
 
     # Checks for valid nickname according to IRC protocol
     def is_valid_nickname(self, nickname):
-
         # Ensure it starts with a valid character
         if (nickname[0] not in STARTING_CHARACTERS) or \
            (len(nickname) > NICKNAME_MAX_LENGTH) or \
@@ -226,25 +225,33 @@ class IRCClient:
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
         self.send_message(error_msg)
 
+    def broadcast_to_all_clients(self, message, old_nickname):
+        self.server.clients_lock.acquire()  # Lock for thread safety
+        try:
+            for client in self.server.clients:
+                if client.nickname != old_nickname:  # Avoid sending back to the sender
+                    client.send_message(message)
+        finally:
+            self.server.clients_lock.release()
+
     def handle_join(self, message):
         channel_name = message.split(" ")[1].strip()
-        if not channel_name.startswith("#"):
+        if channel_name.startswith("#"):
+            self.join_channel(channel_name)
+        else:
             self.send_message(f":server 461 {channel_name} :Not enough parameters\r\n")
-            return
-        channel = self.server.get_or_create_channel(channel_name)
 
-        # Check if already in the channel
+    def join_channel(self, channel_name):
+        channel = self.server.get_or_create_channel(channel_name)
         if channel_name not in self.channels:
-            # Add client to channel
             channel.add_client(self)
-            # Update client's list of channels
             self.channels[channel_name] = channel
-            
-        # Broadcast the join message to all clients in the channel
-        join_message = f":{self.nickname} JOIN :{channel_name}\r\n"
-        for client in channel.clients:
-            if client != self:  # We do not want to send the join message to the joining user itself.
-                client.send_message(join_message)
+        
+            join_message = f":{self.nickname} JOIN :{channel_name}\r\n"
+            for client in channel.clients:
+                # Avoid sending to the joining user
+                if client != self:  
+                    client.send_message(join_message)
 
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
