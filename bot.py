@@ -28,16 +28,22 @@ class Bot:
         userlist = users.split("353")
         print(userlist)
 
-# Updated funnyfact function
     def funnyfact(self, s, text):
-        print(text)
-        # Extract the username from the PRIVMSG command
+        # split the PRIVMSG command to extract the username
         parts = text.split("!")
+
+        # if there are parts to extract
         if len(parts) > 0:
-            username = parts[0][1:]  # Remove the leading ":" from the username
+            # extract the username by removing the leading ":" character
+            username = parts[0][1:]
             print(username)
+
+            # create a response message with a fun fact and the username
             response = f"PRIVMSG {username} :Here's a fun fact!\r\n"
+
+            # send the response message back to the IRC server
             s.send(response.encode())
+
 
 class Socket:
     def __init__(self, host, port):
