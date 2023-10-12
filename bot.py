@@ -105,10 +105,13 @@ class Bot:
         # Parse the sender's username and the message content
         sender = text.split('!')[0][1:]
         message_content = text.split('PRIVMSG')[1].strip()
-
+        
+        # Extract the recipient's username from the message content
+        recipient = message_content.split(" ")[0]
+        
         # Construct a response message
-        response = f'PRIVMSG {sender} :Hello, {sender}! This is a response to your private message: {message_content}\r\n'
-
+        response = f'PRIVMSG {recipient} :Hello, {sender}! This is a response to your private message: {message_content}\r\n'
+        
         # Send the response message
         s.send(response.encode())
 
