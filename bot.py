@@ -28,6 +28,7 @@ class Socket:
             try:
                 # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
                 response = s.recv(2048).decode()
+                print(response)
                 # print(response) # Printing out response for testing
                 if response.startswith("PING"): # If we see PING request
                     self.pong(s, response) # Respond with pong
