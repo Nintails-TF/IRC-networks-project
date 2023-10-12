@@ -100,7 +100,8 @@ class Bot:
         username = (text.split("!")[0]).strip(":") # Getting the username of the person who messaged us
         print(username)
         # Formatting a message to be sent.
-        response = "PRIVMSG " + username + ":Hello, my name is "+ self.nickname+ "\r\n"
+        response = "PRIVMSG " + username + " :Hello, my name is "+ self.nickname+ "\r\n"
+        print(response)
         s.send(response.encode())
 
 
