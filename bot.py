@@ -105,11 +105,16 @@ class Bot:
         sender = text.split('!')[0][1:]
         message_content = text.split('PRIVMSG')[1].strip()
         
+        print(f"Received private message from {sender}: {message_content}")
+        
         # Extract the recipient's username from the message content
         recipient = message_content.split(" ")[0]
         
+        print(f"Recipient: {recipient}")
+        
         # Respond to the private message
         response = f'PRIVMSG {recipient} :Hello, {sender}! This is a response to your private message: {message_content}\r\n'
+        print(f"Sending response: {response}")
         s.send(response.encode())
 
     # initUserlist will grab the initial userlist and store it.
