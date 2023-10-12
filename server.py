@@ -137,11 +137,15 @@ class IRCClient:
             self.server.registered_users.remove(self.nickname)
 
         # Lock to safely change the client list
-        with self.server.clients_lock:
+        self.server.clients_lock.acquire()
+        try:
             # If this client is in the list
             if self in self.server.clients:
                 # Remove this client from the list
                 self.server.clients.remove(self)
+        finally:
+            self.server.clients_lock.release()
+       
 
     def register_client(self):
         # If nickname is already taken, inform the client
@@ -197,11 +201,15 @@ class IRCClient:
         if old_nickname:
             notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
 
-            with self.server.clients_lock:  # Lock for thread safety
+            self.server.clients_lock.acquire()  # Lock for thread safety
+            try:
                 for client in self.server.clients:
                     client.send_message(notification_msg)
+            finally:
+                self.server.clients_lock.release()
 
         print(f"Nickname set to {self.nickname}")
+
 
     def handle_user(self, message=None):
         # Mark that the USER command has been received
@@ -239,47 +247,67 @@ class IRCClient:
         self.send_message(f"PONG :{ping_data}\r\n")
 
     def handle_private_messages(self, message):
+        # Split the message into three parts: command, target, and content
         parts = message.split(" ", 2)
-
+    
+        # Validation of if the message is in and invalid format or not
         if len(parts) < 3:
-            return  # Invalid message format
+            return
+    
+        # Colon was appearing at the start of message content so removing if there
+        # Extract the target of the message and message content from the split parts
+        target, message_content = parts[1], parts[2].lstrip(':')  
 
-        target = parts[1]
-        message_content = parts[2]
-
-        # If the target is targeting a channel
+        # Channel message handling (Whole channel)
         if target.startswith("#"):
-            # Check if the client is a part of that channel
-            if target in self.channels:
-                for client in self.channels[target].clients:
-                    # Assure the message is not sent back to the user
-                    if client != self:
-                        # Forward the message to all clients within the channel
-                        private_message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
-                        client.send_message(private_message)
-            else:
-                # User is not a member of the channel or channel does not exist
-                error_message = f":server 403 {self.nickname} {target} :No such channel or not a member\r\n"
-                self.send_message(error_message)
-
-        # If it's targeting an individual by nickname
+            self._handle_channel_message(target, message_content)
+        # Private message handling (user to user)
         else:
-            # Find the target client by their nickname
-            target_client = None
-            with self.server.clients_lock:
-                for client in self.server.clients:
-                    if client.nickname == target:
-                        target_client = client
-                        break
+            self._handle_user_message(target, message_content)
 
-            if target_client:
-                private_message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
-                target_client.send_message(private_message)
-            else:
-                # Target client not found, send an error message to the sender
-                error_message = f":server 401 {self.nickname} {target} :No such nickname\r\n"
-                self.send_message(error_message)
+    def _handle_channel_message(self, target, message_content):
+        # If the target channel isn't recognized or the user isn't a member, send an error
+        if target not in self.channels:
+            self.send_message(f":server 403 {self.nickname} {target} :No such channel or not a member\r\n")
+            return
+        
+        # Construct the message to be sent to the channel
+        message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
+        
+        # Iterate through clients in the target channel and send the message to each one
+        for client in self.channels[target].clients:
+            # Except for the sender of message
+            if client != self:
+                client.send_message(message)
 
+    def _handle_user_message(self, target, message_content):
+        # Search for the target client by their nickname
+        target_client = self._find_client_by_nickname(target)
+    
+        # If the target client was found, send them the message
+        if target_client:
+            message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
+            target_client.send_message(message)
+        else:
+            # If not found, inform the sender with an error message
+            self.send_message(f":server 401 {self.nickname} {target} :No such nickname\r\n")
+
+    def _find_client_by_nickname(self, nickname):
+        target_client = None
+
+        # Acquire the lock to ensure thread safety while searching for clients by nickname
+        self.server.clients_lock.acquire()
+        try:
+            # Iterate through the clients and find the one with the matching nickname
+            for client in self.server.clients:
+                if client.nickname == nickname:
+                    target_client = client
+                    break
+        finally:
+            # Release the lock after the search is done
+            self.server.clients_lock.release()
+    
+        return target_client
 
 
     def handle_quit(self, message):
