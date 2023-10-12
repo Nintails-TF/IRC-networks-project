@@ -102,17 +102,14 @@ class Bot:
         return join.encode()
 
     def funnyfact(self, s, text):
-        # Parse the sender's username and the message content
         sender = text.split('!')[0][1:]
         message_content = text.split('PRIVMSG')[1].strip()
         
         # Extract the recipient's username from the message content
         recipient = message_content.split(" ")[0]
         
-        # Construct a response message
+        # Respond to the private message
         response = f'PRIVMSG {recipient} :Hello, {sender}! This is a response to your private message: {message_content}\r\n'
-        
-        # Send the response message
         s.send(response.encode())
 
     # initUserlist will grab the initial userlist and store it.
