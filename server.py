@@ -70,6 +70,19 @@ class IRCServer:
         # Start client tasks
         client.handle_client()
 
+    def shutdown_server(self):
+        # Sending a global notice to inform all users about the server shutdown
+        self.broadcast_message(":server NOTICE :Server is shutting down\r\n")
+        time.sleep(5)        
+
+        # Closing all client connections
+        for client in self.clients:
+            client.client_socket.close()
+        
+        # Closing the server socket
+        self.server_socket.close()
+        print("Server has been shut down.")
+
     def start(self):
         try:
             # Assigns the socket to the specified host and port number
@@ -103,10 +116,8 @@ class IRCServer:
         if channel_name not in self.channels:
             self.channels[channel_name] = Channel(channel_name)
         return self.channels[channel_name]
-
-
+    
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-
 
 class IRCClient:
     TIMEOUT = 100
@@ -131,7 +142,9 @@ class IRCClient:
             "PRIVMSG": self.handle_private_messages,
             "QUIT": self.handle_quit,
             "WHO": self.handle_who,
-            "MODE": self.handle_mode
+            "MODE": self.handle_mode,
+            "KICK": self.handle_kick,
+            "MOTD": self.handle_motd
         }
 
     # Sends a message to the client and logs it
@@ -141,15 +154,6 @@ class IRCClient:
             self.client_socket.send(message.encode("utf-8"))
         except Exception as e:
             print(f"An error occurred while sending message: {e}")
-
-    # Checks for valid nickname according to IRC protocol
-    def is_valid_nickname(self, nickname):
-        # Ensure it starts with a valid character
-        if (nickname[0] not in STARTING_CHARACTERS) or \
-           (len(nickname) > NICKNAME_MAX_LENGTH) or \
-           (not all(c in ALLOWED_CHARACTERS for c in nickname[1:])):
-            return False
-        return True
 
     def notify_disconnect(self):
         # If the user has a nickname and is registered.
@@ -229,6 +233,15 @@ class IRCClient:
                 self.server.clients_lock.release()
 
         print(f"Nickname set to {self.nickname}")
+    
+    # Checks for valid nickname according to IRC protocol
+    def is_valid_nickname(self, nickname):
+        # Ensure it starts with a valid character
+        if (nickname[0] not in STARTING_CHARACTERS) or \
+           (len(nickname) > NICKNAME_MAX_LENGTH) or \
+           (not all(c in ALLOWED_CHARACTERS for c in nickname[1:])):
+            return False
+        return True
 
     def handle_user(self, message=None):
         # Mark that the USER command has been received
@@ -288,8 +301,6 @@ class IRCClient:
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
         self.send_message(f"PONG :{ping_data}\r\n")
-
-    
 
     def handle_private_messages(self, message):
         # Split the message into three parts: command, target, and content
@@ -383,6 +394,38 @@ class IRCClient:
 
         # Notify the server to remove this client from active clients
         self.notify_disconnect()
+            
+    # handles who method
+    def handle_who(self, message):
+        parts = message.split(" ")
+        if len(parts) < 2:
+            self.send_message(f":server 461 {self.nickname} WHO :Not enough parameters\r\n")
+            return
+
+        channel_name = parts[1].strip()
+        if channel_name not in self.channels:
+            self.send_message(f":server 403 {self.nickname} {channel_name} :No such channel\r\n")
+            return
+
+        channel = self.channels[channel_name]
+        for client in channel.clients:
+            self.send_message(f":server 352 {self.nickname} {channel_name} {client.nickname} ...\r\n")
+
+        self.send_message(f":server 315 {self.nickname} {channel_name} :End of WHO list\r\n")
+    
+    def handle_mode(self, message):
+        # Will be supported later but now just send not supported
+        self.send_message(":server 502 :MODE command is not supported\r\n")
+    
+    # Not yet implemented
+    def handle_kick(self, message=None):
+        self.send_message(":server 502 :KICK command is not supported\r\n")
+    
+    # Not yet implemented
+    def handle_motd(self, message=None):
+        self.send_message(":server 502 :MOTD command is not supported\r\n")
+        
+ # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
     def handle_client(self):
         try:
@@ -457,28 +500,6 @@ class IRCClient:
             message, self.buffer = self.buffer.split("\r\n", 1)
             print(f"Received: {repr(message)}")
             self.process_message(message.strip())
-            
-    # handles who method
-    def handle_who(self, message):
-        parts = message.split(" ")
-        if len(parts) < 2:
-            self.send_message(f":server 461 {self.nickname} WHO :Not enough parameters\r\n")
-            return
-
-        channel_name = parts[1].strip()
-        if channel_name not in self.channels:
-            self.send_message(f":server 403 {self.nickname} {channel_name} :No such channel\r\n")
-            return
-
-        channel = self.channels[channel_name]
-        for client in channel.clients:
-            self.send_message(f":server 352 {self.nickname} {channel_name} {client.nickname} ...\r\n")
-
-        self.send_message(f":server 315 {self.nickname} {channel_name} :End of WHO list\r\n")
-    
-    def handle_mode(self, message):
-        # Will be supported later but now just send not supported
-        self.send_message(":server 502 :MODE command is not supported\r\n")
     
 
 class Channel:
