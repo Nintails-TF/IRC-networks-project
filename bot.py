@@ -12,7 +12,7 @@ class Socket:
 
     def connectToServer(self):
         # Setting the NICK and REAL name of the bot
-        swagBot = Bot("SwagBot", "Swag")
+        swagBot = Bot("SwagBot", "Swag", [])
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port))
@@ -85,9 +85,10 @@ The Bot class is responsible for holding all the functions that the bot must per
 sending messages, etc.
 """
 class Bot:
-    def __init__(self, nickname, realname):
+    def __init__(self, nickname, realname, userlist):
         self.nickname = nickname 
         self.realname = realname 
+        self.userlist = userlist
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
