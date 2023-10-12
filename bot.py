@@ -28,12 +28,16 @@ class Bot:
         userlist = users.split("353")
         print(userlist)
 
+# Updated funnyfact function
     def funnyfact(self, s, text):
         print(text)
-        username = text.split("!")[0]
-        print(username)
-        response = "PRIVMSG " + username + " :Here's a fun fact!\r\n"
-        s.send(response.encode())
+        # Extract the username from the PRIVMSG command
+        parts = text.split("!")
+        if len(parts) > 0:
+            username = parts[0][1:]  # Remove the leading ":" from the username
+            print(username)
+            response = f"PRIVMSG {username} :Here's a fun fact!\r\n"
+            s.send(response.encode())
 
 class Socket:
     def __init__(self, host, port):
