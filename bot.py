@@ -47,7 +47,7 @@ class Socket:
         s.send(response.encode())
 
     # userlist will grab the initial userlist and store it.
-    def userlist(self, text):
+    def userlist(self, text, bot):
         userlist = text.split("353") # Seperating the main reponse from the userlist
         userlist = userlist[1].split("\n", 1) # Removing all text after the userlist prompt
         userlist = userlist[0].spilt(":")
