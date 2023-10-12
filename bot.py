@@ -35,7 +35,7 @@ class Socket:
                 # ELIF we can get the userlist if we see the 353 IRC code.
                 elif response.find("353") != -1:
                     self.userlist(response)
-                time.sleep("0.5") # Sleeping for half a second to avoid flooding the server with requests.
+                time.sleep(0.5) # Sleeping for half a second to avoid flooding the server with requests.
             except KeyboardInterrupt:
                 break
 
@@ -51,7 +51,7 @@ class Socket:
     def userlist(self, text):
         print(text) # testing output
         # SPLIT THE USER LIST INTO AN ARRAY AFTER 353.
-        
+
 
     def getHost(self):
         return self.host
