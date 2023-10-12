@@ -19,10 +19,10 @@ class Socket:
             s.send(swagBot.botRegistration()) # Send NICK and USER details
             # RETAIN INFO STEP - use recv to get data from IRC server
             s.send(swagBot.botJoinChannel())
-            self.keepalive(s)
+            self.keepalive(s, swagBot)
 
     # keepalive will keep the bot in the IRC server
-    def keepalive(self, s):
+    def keepalive(self, s, swagBot):
         # This will loop until you CTRL+C
         while True:
             try:
@@ -34,7 +34,7 @@ class Socket:
                     self.pong(s, response) # Respond with pong
                 # ELIF we can get the userlist if we see the 353 IRC code.
                 elif response.find("353") != -1:
-                    self.userlist(response)
+                    self.userlist(response, swagBot)
             except KeyboardInterrupt:
                 break
 
@@ -50,11 +50,11 @@ class Socket:
     def userlist(self, text):
         userlist = text.split("353") # Seperating the main reponse from the userlist
         userlist = userlist[1].split("\n", 1) # Removing all text after the userlist prompt
-        print(userlist[0]) # Now we have the initial userlist
+        userlist = userlist[0].spilt(":")
         # USE A LOOP TO SPILT AFTER THE COLON AND USE " " AS THE DELIMETER TO GET USERLIST
+        print(userlist)
+        # SET BOTS USERLIST TO USERLIST
         
-
-
     def getHost(self):
         return self.host
     
