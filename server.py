@@ -226,28 +226,39 @@ class IRCClient:
         self.send_message(error_msg)
 
     def broadcast_to_all_clients(self, message, old_nickname):
-        self.server.clients_lock.acquire()  # Lock for thread safety
+        # Lock for thread safety
+        self.server.clients_lock.acquire()  
         try:
             for client in self.server.clients:
-                if client.nickname != old_nickname:  # Avoid sending back to the sender
+                # Avoid sending back to the sender
+                if client.nickname != old_nickname:  
                     client.send_message(message)
         finally:
             self.server.clients_lock.release()
 
     def handle_join(self, message):
+        # Get channel name the user is attempting from the message
         channel_name = message.split(" ")[1].strip()
         if channel_name.startswith("#"):
+            # Join channel if channel name starts with # so is valid
             self.join_channel(channel_name)
         else:
+            # If the users input is not valid for channel joining
             self.send_message(f":server 461 {channel_name} :Not enough parameters\r\n")
 
     def join_channel(self, channel_name):
+        # Retrieve channel or create it
         channel = self.server.get_or_create_channel(channel_name)
+        
+        # If channel does not exist in the users list of channels
         if channel_name not in self.channels:
+            # Add user to the channel
             channel.add_client(self)
             self.channels[channel_name] = channel
         
             join_message = f":{self.nickname} JOIN :{channel_name}\r\n"
+            
+            # Send joining message to channel
             for client in channel.clients:
                 # Avoid sending to the joining user
                 if client != self:  
