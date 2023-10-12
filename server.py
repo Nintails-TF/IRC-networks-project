@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 
 
 class IRCServer:
@@ -17,6 +18,7 @@ class IRCServer:
         self.channels = {}
         self.clients_lock = threading.Lock()
         self.registered_users = []
+        self.disconnect_times = {}  # Stores recent disconnects by IP address
 
     def bind_and_listen(self):
         # Assigns the socket to the specified host and port number
@@ -26,10 +28,26 @@ class IRCServer:
         self.server_socket.listen(5)
         print(f"Listening on {self.HOST} : {self.PORT}")
 
+    def cleanup_disconnects(self):
+        while True:
+            time.sleep(30)  # Clean up every 5 minutes
+            current_time = time.time()
+            ips_to_remove = [ip for ip, disconnect_time in self.disconnect_times.items() if current_time - disconnect_time > 600]  # Remove entries older than 10 minutes
+
+            for ip in ips_to_remove:
+                del self.disconnect_times[ip]
+
     def accept_connection(self):
         # Waits for an incoming connection and then get the client socket and address
         client_socket, client_address = self.server_socket.accept()
         print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
+        ip_address = client_address[0]
+        if ip_address in self.disconnect_times:
+            last_disconnect_time = self.disconnect_times[ip_address]
+            if time.time() - last_disconnect_time < IRCClient.TIMEOUT:  # 8 seconds as cooldown in this case
+                print(f"Connection attempt from {ip_address} but it's on cooldown.")
+                client_socket.close()
+                return None
         return client_socket
 
     def handle_individual_client(self, client_socket):
@@ -84,6 +102,7 @@ class IRCServer:
 
 
 class IRCClient:
+    TIMEOUT = 100
     def __init__(self, client_socket, server):
         self.client_socket = client_socket
         self.server = server
@@ -92,6 +111,7 @@ class IRCClient:
         self.user_received = False
         self.buffer = ""
         self.is_registered = False
+        
 
         # Command-handler mapping
         self.commands = {
@@ -349,23 +369,31 @@ class IRCClient:
     def handle_client(self):
         try:
             while True:
-                # Set to read up to 4096 bytes from the client
+                # Set the timeout for the client socket.
+                self.client_socket.settimeout(IRCClient.TIMEOUT)
+                
+                # Set to read up to 4096 bytes from the client.
                 data = self.client_socket.recv(4096)
-
-                # If no data is received, it means the client has disconnected so ends loop
+                
+                # If no data is received, it means the client has disconnected so ends loop.
                 if not data:
                     break
 
-                # Adds recieved data to buffer
+                # Adds received data to buffer.
                 self.buffer += data.decode("utf-8")
-
-                # Process complete messages from the buffer
+                
+                # Process complete messages from the buffer.
                 while "\r\n" in self.buffer:
                     message, self.buffer = self.buffer.split("\r\n", 1)
                     message = message.strip()
                     print(f"Received: {repr(message)}")
                     self.process_message(message)
 
+
+        except socket.timeout:
+            print(f"Client {self.nickname if self.nickname else self.client_socket.getpeername()} timed out.")
+            self.notify_disconnect()  # This will remove the client from the server's list
+            self.client_socket.close()
         # Specific handling for socket errors
         except socket.error as se:
             print(f"Socket error in client: {se}")
@@ -375,6 +403,29 @@ class IRCClient:
             print(f"Error in client: {e}")
         finally:
             self.notify_disconnect()
+
+    def handle_timeout(self):
+        # Record the disconnect time of this IP
+        ip_address = self.client_socket.getpeername()[0]
+        self.server.disconnect_times[ip_address] = time.time()
+
+        # Notify channels of client's timeout
+        for channel_name, channel in self.channels.items():
+            for client in channel.clients:  # Notice the change here, we should iterate over clients in the specific channel
+                if client != self:
+                    client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
+
+            # Properly remove the client from the channel's client list
+            channel.remove_client(self)
+
+        # Inform the client of the timeout
+        self.send_message(f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n")
+
+        # Close this client's socket
+        self.client_socket.close()
+
+        # Notify the server to remove this client from active clients
+        self.notify_disconnect()
 
     def handle_who(self, message):
         # If the message is not in correct format
