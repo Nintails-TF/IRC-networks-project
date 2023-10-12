@@ -28,7 +28,6 @@ class Socket:
             try:
                 # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
                 response = s.recv(2048).decode()
-                print(response)
                 # print(response) # Printing out response for testing
                 if response.startswith("PING"): # If we see PING request
                     self.pong(s, response) # Respond with pong
@@ -96,9 +95,10 @@ class Bot:
 
     # The funnyfact function will cause the bot to respond to a private message with a fun fact
     def funnyfact(self, s, text):
-        print("funnyfact accessed")
-        # privateMessage = text.split(" ")[1]
         print(text)
+        # We need to get the user who sent us a private message then to respond to them.
+        username = text.split("!")[0] # Getting the username of the person who messaged us
+        print(username)
         # response = "PRIVMSG " + privateMessage + "\r\n"
         # s.send(response.encode())
 
