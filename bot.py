@@ -49,8 +49,11 @@ class Socket:
     # userlist will grab the initial userlist and store it.
     def userlist(self, users, bot):
         # Testing input
+        userlist = users[0]
         print("This is the text in userlist "+ users[0])
         # Split at the : and use " " as the delimiter
+        userlist = userlist.split(":")
+        print(userlist)
 
         # SET BOTS USERLIST TO USERLIST
         bot.userlist = users
