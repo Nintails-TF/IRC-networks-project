@@ -35,7 +35,7 @@ class Socket:
                 elif "353" in response: # ELIF we can get the userlist if we see the 353 IRC code.
                     i1 = response.index("353")
                     i2 = response.index("\n")
-                    response = response[i1 + 1:i2] 
+                    response = response[i1:i2] 
                     self.userlist(response, swagBot)
             except KeyboardInterrupt:
                 break
