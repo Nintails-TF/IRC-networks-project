@@ -1,5 +1,5 @@
 import socket
-import time
+import re
 
 """
 The socket class is responsible for handling the network connections between the Bot (client) and
@@ -33,11 +33,7 @@ class Socket:
                 if response.startswith("PING"):
                     self.pong(s, response) # Respond with pong
                 elif "353" in response: # ELIF we can get the userlist if we see the 353 IRC code.
-                    s1 = "353"
-                    s2 = "\n"
-                    i1 = response.index(s1)
-                    i2 = response.index(s2)
-                    response = response[i1 + len(s1) + 1: i2] 
+                    response = re.findall("353(.*?)\n" , response)
                     self.userlist(response, swagBot)
             except KeyboardInterrupt:
                 break
