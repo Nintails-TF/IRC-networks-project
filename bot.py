@@ -48,11 +48,10 @@ class Socket:
 
     # userlist will grab the initial userlist and store it.
     def userlist(self, text):
-        print(text) # testing output
-        # SPLIT THE USER LIST INTO AN ARRAY AFTER 353.
-        userlist = text.split("353")
+        userlist = text.split("353") # Seperating the main reponse from the userlist
         userlist = userlist[1].split("\n", 1) # Removing all text after the userlist prompt
-        print(userlist[0])
+        print(userlist[0]) # Now we have the initial userlist
+        # USE A LOOP TO SPILT AFTER THE COLON AND USE " " AS THE DELIMETER TO GET USERLIST
         
 
 
