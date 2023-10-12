@@ -1,4 +1,5 @@
 import socket
+import time
 
 """
 The socket class is responsible for handling the network connections between the Bot (client) and
@@ -34,6 +35,7 @@ class Socket:
                 # ELIF we can get the userlist if we see the 353 IRC code.
                 elif response.find("353") != -1:
                     self.userlist(response)
+                time.sleep("0.5") # Sleeping for half a second to avoid flooding the server with requests.
             except KeyboardInterrupt:
                 break
 
@@ -48,6 +50,8 @@ class Socket:
     # userlist will grab the initial userlist and store it.
     def userlist(self, text):
         print(text) # testing output
+        # SPLIT THE USER LIST INTO AN ARRAY AFTER 353.
+        
 
     def getHost(self):
         return self.host
