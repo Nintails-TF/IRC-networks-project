@@ -31,9 +31,13 @@ class Socket:
                 # print(response) # Printing out response for testing
                 if response.startswith("PING"): # If we see PING request
                     self.pong(s, response) # Respond with pong
-                elif "353" in response: # If we 353 (userlist) IRC code.
+                elif "353" in response: # When we see the 353 (userlist) IRC code.
                     response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
                     self.initUserlist(response, swagBot) # generate a userlist
+                # IF THE BOT IS PRIVATE MESSAGED
+                elif response.startswith("PRIVMSG"):
+                    swagBot.funnyfact(s, response)
+                # IF USERS CONNECT/DISCONNECT
             except KeyboardInterrupt:
                 break
 
@@ -88,6 +92,14 @@ class Bot:
         self.nickname = nickname 
         self.realname = realname 
         self.userlist = userlist
+
+    # The funnyfact function will cause the bot to respond to a private message with a fun fact
+    def funnyfact(self, s, text):
+        privateMessage = text.split(" ")[1]
+        print(privateMessage)
+        # response = "PRIVMSG " + privateMessage + "\r\n"
+        # s.send(response.encode())
+
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
