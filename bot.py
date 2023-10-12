@@ -51,7 +51,8 @@ class Socket:
         print(text) # testing output
         # SPLIT THE USER LIST INTO AN ARRAY AFTER 353.
         userlist = text.split("353")
-        print(userlist[1])
+        userlist = userlist[1].split("\n", 1) # Removing all text after the userlist prompt
+        print(userlist)
         
 
 
