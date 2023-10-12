@@ -103,11 +103,6 @@ class Bot:
         join = "JOIN " + self.channel + "\r\n"
         return join.encode()
 
-    # Respond to a private message with a fun fact
-    def funnyfact(self, s, recipient):
-        response = f"PRIVMSG {recipient} :Here's a fun fact for you: This bot is awesome!\r\n"
-        s.send(response.encode())
-
     def funnyfact(self, s, text):
         # Parse the sender's username and the message content
         sender = text.split('!')[0][1:]
