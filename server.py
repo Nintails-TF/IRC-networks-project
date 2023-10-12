@@ -240,7 +240,12 @@ class IRCClient:
             # Add client to channel
             channel.add_client(self)  
             # Update client's list of channels
-            self.channels[channel_name] = channel  
+            self.channels[channel_name] = channel
+        # Broadcast the join message to all clients in the channel
+        join_message = f":{self.nickname} JOIN :{channel_name}\r\n"
+        for client in channel.clients:
+            if client != self:  # We do not want to send the join message to the joining user itself.
+                client.send_message(join_message)
 
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
