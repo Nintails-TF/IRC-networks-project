@@ -35,7 +35,7 @@ class Socket:
                     response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
                     self.initUserlist(response, swagBot) # generate a userlist
                 # IF THE BOT IS PRIVATE MESSAGED
-                elif response.startswith("PRIVMSG"):
+                elif response.contains("PRIVMSG"):
                     swagBot.funnyfact(s, response)
                 # IF USERS CONNECT/DISCONNECT
             except KeyboardInterrupt:
