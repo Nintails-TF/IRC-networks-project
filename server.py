@@ -64,6 +64,10 @@ class IRCServer:
         # Specific handling for socket errors
         except socket.error as se:
             print(f"Socket error in client: {se}")
+            
+        # Catch value errror
+        except ValueError as ve:
+            print(f"Value error: {ve}")
 
         # Catch all other exceptions
         except Exception as e:
@@ -360,7 +364,11 @@ class IRCClient:
         # Specific handling for socket errors
         except socket.error as se:
             print(f"Socket error in client: {se}")
-
+        
+        # Catch value errror
+        except ValueError as ve:
+            print(f"Value error: {ve}")
+        
         # Catch all other exceptions
         except Exception as e:
             print(f"Error in client: {e}")
