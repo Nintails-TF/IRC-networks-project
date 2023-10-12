@@ -97,8 +97,8 @@ class Bot:
     # The funnyfact function will cause the bot to respond to a private message with a fun fact
     def funnyfact(self, s, text):
         print("funnyfact accessed")
-        privateMessage = text.split(" ")[1]
-        print(privateMessage)
+        # privateMessage = text.split(" ")[1]
+        print(text)
         # response = "PRIVMSG " + privateMessage + "\r\n"
         # s.send(response.encode())
 
