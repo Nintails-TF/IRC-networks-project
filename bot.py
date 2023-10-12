@@ -51,8 +51,8 @@ class Socket:
         # Testing input
         print("This is the text in userlist "+ str(users))
         # Split at the : and use " " as the delimiter
-        users = users[0].split(":").split(" ")
-        print("This is the text in userlist "+ str(users))
+        userlist = users[0].split(":").split(" ")
+        print("This is the text in userlist "+ userlist)
 
         # SET BOTS USERLIST TO USERLIST
         bot.userlist = users
