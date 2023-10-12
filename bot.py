@@ -33,7 +33,7 @@ class Socket:
                 if response.startswith("PING"):
                     self.pong(s, response) # Respond with pong
                 # ELIF we can get the userlist if we see the 353 IRC code.
-                elif response.find("353") != -1:
+                elif response.find("353 "+swagBot.nickname) != -1:
                     self.userlist(response, swagBot)
             except KeyboardInterrupt:
                 break
@@ -48,12 +48,11 @@ class Socket:
 
     # userlist will grab the initial userlist and store it.
     def userlist(self, text, bot):
-        userlist = text.split("353") # Seperating the main reponse from the userlist
-        userlist = userlist[1].split("\n", 1) # Removing all text after the userlist prompt
-        userlist = userlist[0].split(":")
-        # USE A LOOP TO SPILT AFTER THE COLON AND USE " " AS THE DELIMETER TO GET USERLIST
-        print(userlist)
+        # Testing input
+        print(text)
+        # SPILT THE USERLIST TEXT INTO AN ARRAY
         # SET BOTS USERLIST TO USERLIST
+        bot.userlist = text
         
     def getHost(self):
         return self.host
