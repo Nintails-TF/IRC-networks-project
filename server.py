@@ -268,6 +268,8 @@ class IRCClient:
         ping_data = message.split(" ")[1]
         self.send_message(f"PONG :{ping_data}\r\n")
 
+    
+
     def handle_private_messages(self, message):
         # Split the message into three parts: command, target, and content
         parts = message.split(" ", 2)
@@ -373,13 +375,7 @@ class IRCClient:
 
                 # Adds recieved data to buffer
                 self.buffer += data.decode("utf-8")
-
-                # Process complete messages from the buffer
-                while "\r\n" in self.buffer:
-                    message, self.buffer = self.buffer.split("\r\n", 1)
-                    message = message.strip()
-                    print(f"Received: {repr(message)}")
-                    self.process_message(message)
+                self.process_buffered_messages()
 
         # Specific handling for socket errors
         except socket.error as se:
@@ -395,40 +391,31 @@ class IRCClient:
         finally:
             self.notify_disconnect()
 
+    # Process complete messages from the buffer
+    def process_buffered_messages(self):
+        while "\r\n" in self.buffer:
+            message, self.buffer = self.buffer.split("\r\n", 1)
+            print(f"Received: {repr(message)}")
+            self.process_message(message.strip())
+            
+    
+    # handles who method
     def handle_who(self, message):
-        # If the message is not in correct format
-        if len(message.split(" ")) < 2:
-            self.send_message(
-                f":server 461 {self.nickname} WHO :Not enough parameters\r\n"
-            )
+        parts = message.split(" ")
+        if len(parts) < 2:
+            self.send_message(f":server 461 {self.nickname} WHO :Not enough parameters\r\n")
             return
 
-        # Get the channel name
-        channel_name = message.split(" ")[1].strip()
-
-        # If the channel doesn't exist
+        channel_name = parts[1].strip()
         if channel_name not in self.channels:
-            self.send_message(
-                f":server 403 {self.nickname} {channel_name} :No such channel\r\n"
-            )
+            self.send_message(f":server 403 {self.nickname} {channel_name} :No such channel\r\n")
             return
 
-        # Get the channel object
         channel = self.channels[channel_name]
+        for client in channel.clients:
+            self.send_message(f":server 352 {self.nickname} {channel_name} {client.nickname} ...\r\n")
 
-        # Get the list of clients in the channel
-        clients = channel.clients
-
-        # Send the list of clients to the user
-        for client in clients:
-            self.send_message(
-                f":server 352 {self.nickname} {channel_name} {client.nickname} {client.nickname} {client.client_socket.getpeername()[0]} {self.nickname} H :0 {client.nickname}\r\n"
-            )
-
-        # Send the end of WHO list message
-        self.send_message(
-            f":server 315 {self.nickname} {channel_name} :End of WHO list\r\n"
-        )
+        self.send_message(f":server 315 {self.nickname} {channel_name} :End of WHO list\r\n")
 
 
 class Channel:
