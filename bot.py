@@ -29,12 +29,11 @@ class Socket:
                 # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
                 response = s.recv(2048).decode()
                 # print(response) # Printing out response for testing
-                # If we see PING request
-                if response.startswith("PING"):
+                if response.startswith("PING"): # If we see PING request
                     self.pong(s, response) # Respond with pong
-                elif "353" in response: # ELIF we can get the userlist if we see the 353 IRC code.
+                elif "353" in response: # If we 353 (userlist) IRC code.
                     response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
-                    self.initUserlist(response, swagBot)
+                    self.initUserlist(response, swagBot) # generate a userlist
             except KeyboardInterrupt:
                 break
 
