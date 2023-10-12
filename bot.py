@@ -1,5 +1,6 @@
 import socket
 import argparse
+import re
 
 # Initialize the default values for host, port, realname, nickname, and channel
 host = "::1"
@@ -22,17 +23,25 @@ class Socket:
             s.connect((self.host, self.port))
             s.send(bot.botRegistration())
             s.send(bot.botJoinChannel())
-            self.keepalive(s)
+            self.keepalive(s, bot)
 
-    def keepalive(self, s):
+    # keepalive will keep the bot in the IRC server
+    def keepalive(self, s, bot):
+        # This will loop until you CTRL+C
         while True:
             try:
+                # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
                 response = s.recv(2048).decode()
-                print(response)
-                if response.startswith("PING"):
-                    self.pong(s, response)
-                elif "353" in response:
-                    self.userlist(s, response)
+                # print(response) # Printing out response for testing
+                if response.startswith("PING"): # If we see PING request
+                    self.pong(s, response) # Respond with pong
+                elif "353" in response: # When we see the 353 (userlist) IRC code.
+                    response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
+                    self.initUserlist(response, bot) # generate a userlist
+                # IF THE BOT IS PRIVATE MESSAGED
+                elif "PRIVMSG" in response:
+                    bot.funnyfact(s, response)
+                # IF USERS CONNECT/DISCONNECT
             except KeyboardInterrupt:
                 break
 
@@ -41,8 +50,9 @@ class Socket:
         response = "PONG " + ping_message + "\r\n"
         s.send(response.encode())
 
-    def userlist(self, s, text):
+    def userlist(self, s, text, bot):
         print(text.split("353"))
+        bot.initUserlist(text)
 
     def getHost(self):
         return self.host
@@ -65,7 +75,7 @@ python bot.py --host fc00:1337::19
 would set the IPv6 address to connect to.
 """
 class Menu:
-    def __init__(self) -> None:
+    def __init__(self):
         self.parser = argparse.ArgumentParser(description="IRC Bot Configuration")
         self.parser.add_argument('--host', default=host, help="IPv6 address to connect to")
         self.parser.add_argument('--port', type=int, default=port, help="Port to connect to")
@@ -85,6 +95,7 @@ class Bot:
         self.nickname = nickname
         self.realname = realname
         self.channel = channel
+        self.userlist = []
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
@@ -95,6 +106,24 @@ class Bot:
     def botJoinChannel(self):
         join = "JOIN " + self.channel + "\r\n"
         return join.encode()
+
+    # handlePrivateMessage will respond to a private message with a fun fact
+    def handlePrivateMessage(self, s, text):
+        print(text)
+        # We need to get the user who sent us a private message then to respond to them.
+        username = text.split("!")[0]  # Getting the username of the person who messaged us
+        print(username)
+        self.funnyfact(s, username)
+
+    # Respond to a private message with a fun fact
+    def funnyfact(self, s, recipient):
+        response = f"PRIVMSG {recipient} :Here's a fun fact for you: This bot is awesome!\r\n"
+        s.send(response.encode())
+
+    # initUserlist will grab the initial userlist and store it.
+    def initUserlist(self, users):
+        userlist = users.split("353")
+        print(userlist)
 
 def main():
     menu = Menu()
