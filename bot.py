@@ -27,13 +27,13 @@ class Socket:
             try:
                 # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
                 response = s.recv(2048).decode()
-                print(response) # Printing out response for testing
+                # print(response) # Printing out response for testing
                 # If we see PING request
                 if response.startswith("PING"):
                     self.pong(s, response) # Respond with pong
                 # ELIF we can get the userlist if we see the 353 IRC code.
                 elif "353" in response:
-                    self.userlist(s, response)
+                    self.userlist(response)
             except KeyboardInterrupt:
                 break
 
@@ -46,8 +46,8 @@ class Socket:
         s.send(response.encode())
 
     # userlist will grab the initial userlist and store it.
-    def userlist(self, s, text):
-        print(text.split("353")) # testing output
+    def userlist(self, text):
+        print(text) # testing output
 
     def getHost(self):
         return self.host
