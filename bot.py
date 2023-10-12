@@ -109,7 +109,7 @@ class Bot:
         message_content = text.split('PRIVMSG')[1].strip()
 
         # Construct a response message
-        response = f'PRIVMSG {sender} {message_content}\r\n'
+        response = f'PRIVMSG {self.channel} :Hello, {sender}! This is a response to your private message: {message_content}\r\n'
 
         # Send the response message
         s.send(response.encode())
