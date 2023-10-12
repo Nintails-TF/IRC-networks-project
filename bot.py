@@ -103,17 +103,20 @@ class Bot:
         join = "JOIN " + self.channel + "\r\n"
         return join.encode()
 
-    # handlePrivateMessage will respond to a private message with a fun fact
-    def handlePrivateMessage(self, s, text):
-        print(text)
-        # We need to get the user who sent us a private message then to respond to them.
-        username = text.split("!")[0]  # Getting the username of the person who messaged us
-        print(username)
-        self.funnyfact(s, username)
-
     # Respond to a private message with a fun fact
     def funnyfact(self, s, recipient):
         response = f"PRIVMSG {recipient} :Here's a fun fact for you: This bot is awesome!\r\n"
+        s.send(response.encode())
+
+    def funnyfact(self, s, text):
+        # Parse the sender's username and the message content
+        sender = text.split('!')[0][1:]
+        message_content = text.split('PRIVMSG')[1].strip()
+
+        # Construct a response message
+        response = f'PRIVMSG {sender} {message_content}\r\n'
+
+        # Send the response message
         s.send(response.encode())
 
     # initUserlist will grab the initial userlist and store it.
