@@ -97,10 +97,11 @@ class Bot:
     def funnyfact(self, s, text):
         print(text)
         # We need to get the user who sent us a private message then to respond to them.
-        username = text.split("!")[0] # Getting the username of the person who messaged us
+        username = (text.split("!")[0]).strip(":") # Getting the username of the person who messaged us
         print(username)
-        # response = "PRIVMSG " + privateMessage + "\r\n"
-        # s.send(response.encode())
+        # Formatting a message to be sent.
+        response = "PRIVMSG " + username + ":Hello, my name is "+ self.nickname+ "\r\n"
+        s.send(response.encode())
 
 
     # @return a formatted NICK and USER command
