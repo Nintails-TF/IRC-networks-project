@@ -104,7 +104,6 @@ class Bot:
         # RANDOMLY SELECT ONE OF THE LINES
         joke = random.choice(jokesFile.readlines())
         # Formatting a message to be sent.
-        response = "PRIVMSG " + username + " :Hello, my name is "+ self.nickname+ "\r\n"
         response = "PRIVMSG " + username + " :Want to hear an amazing joke? "+ joke + "\r\n"
         jokesFile.close()
         s.send(response.encode())
