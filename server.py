@@ -290,6 +290,11 @@ class ClientCommandProcessing:
                 if client != self:  
                     client.send_message(join_message)
 
+            # Send a notice to the channel with the list of connected users
+            users_list = ' '.join(client.nickname for client in channel.clients)
+            notice_message = f"Users in {ch_name}: {users_list}"
+            channel.send_notice("server", notice_message)  # Assuming "server" as the sender.
+
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
         self.send_message(f"PONG :{ping_data}\r\n")
@@ -403,6 +408,11 @@ class Channel:
                 client.send_message(
                     f":{origin_client.nickname} PRIVMSG {self.name} :{message}\r\n"
                 )
+
+    def send_notice(self, sender, message):
+        notice = f":{sender} NOTICE {self.name} :{message}\r\n"
+        for client in self.clients:
+            client.send_message(notice)
 
 
 if __name__ == "__main__":
