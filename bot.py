@@ -2,7 +2,7 @@ import socket
 import re
 import random
 import argparse
-from datetime import datetime
+import time
 
 # Initialize the default values for host, port, realname, nickname, and channel
 host = "::1"
@@ -176,13 +176,21 @@ class Bot:
 
         s.send(response.encode())
 
-    # Add this method to the Bot class
-    def greet_user(self, s, text):
+    def greet(self, s, text):
         username = text.split('!')[0].strip(':')
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Get the current date and time
+        message_parts = text.split(' ')
 
-        response = f"PRIVMSG {username} :Greetings {username}, welcome to the server. The date is {current_time.split()[0]}, and the time is {current_time.split()[1]}.\r\n"
-        s.send(response.encode())
+        if len(message_parts) >= 4 and message_parts[3] == ":!hello\r\n":
+            # Get the current date and time
+            current_date = time.strftime("%Y-%m-%d")
+            current_time = time.strftime("%H:%M:%S")
+
+            # Form the greeting message
+            greeting = f"Greetings {username}, welcome to the server! The date is {current_date}, and the time is {current_time}."
+
+            # Send the greeting message to the channel
+            response = f"PRIVMSG {self.channel} :{greeting}\r\n"
+            s.send(response.encode())
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
