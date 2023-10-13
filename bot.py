@@ -38,7 +38,12 @@ class Socket:
                 # IF THE BOT IS PRIVATE MESSAGED
                 elif "PRIVMSG" in response:
                     swagBot.funnyfact(s, response)
-                # IF USERS CONNECT/DISCONNECT
+                # IF A USERS CONNECTS
+                elif "JOIN" in response:
+                    swagBot.addUser(s, response)
+                # IF A USERS DISCONNECTs
+                elif "QUIT" in response:
+                    swagBot.removeUser(s, response)
             except KeyboardInterrupt:
                 break
 
@@ -94,6 +99,20 @@ class Bot:
         self.realname = realname 
         self.userlist = userlist
 
+    # addUser will add a new user to the bots userlist
+    def addUser(self, text):
+        print("This is the current userlist " + self.userlist)
+        print("We are adding a user!: "+ text)
+        print("This is the updated userlist " + self.userlist)
+        pass
+
+    # removeUser will remove a user from the bots userlist.
+    def removeUser(self, text):
+        print("This is the current userlist " + self.userlist)
+        print("We are removing a user!: "+ text)
+        print("This is the updated userlist " + self.userlist)
+        pass
+
     # The funnyfact function will cause the bot to respond to a private message with a fun fact
     def funnyfact(self, s, text):
         print(text)
@@ -107,7 +126,6 @@ class Bot:
         response = "PRIVMSG " + username + " :Want to hear an amazing joke? "+ joke + "\r\n"
         jokesFile.close()
         s.send(response.encode())
-
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
