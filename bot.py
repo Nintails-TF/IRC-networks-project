@@ -44,6 +44,9 @@ class Socket:
                 # IF THE BOT IS PRIVATE MESSAGED
                 elif "PRIVMSG" in response:
                     swagBot.funnyfact(s, response)
+                    # Check if it's a slap command
+                    if "!slap" in response:
+                        swagBot.slap(s, response)
                 # IF A USERS CONNECTS
                 elif "JOIN" in response:
                     swagBot.addUser(response)
@@ -140,6 +143,31 @@ class Bot:
         response = "PRIVMSG " + username + " :Want to hear an amazing joke? "+ joke + "\r\n"
         jokesFile.close()
         s.send(response.encode())
+
+    # The slap function to slap random or specific users
+    def slap(self, s, text):
+        command_parts = text.split(" ")
+        if len(command_parts) == 2:
+            # User wants to slap a specific user
+            target_user = command_parts[1]
+            sender = text.split("!")[0].lstrip(":")
+            if target_user not in self.userlist:
+                # If the target user is not in the channel, slap the sender
+                target_user = sender
+            if target_user != self.nickname and target_user != sender:
+                response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
+                s.send(response.encode())
+            else:
+                # Don't slap the bot or the sender
+                response = "PRIVMSG {self.channel} :You can't slap yourself!\r\n"
+                s.send(response.encode())
+        else:
+            # User wants to slap a random user
+            sender = text.split("!")[0].lstrip(":")
+            random_user = random.choice([user for user in self.userlist if user != self.nickname and user != sender])
+            if random_user:
+                response = f"PRIVMSG {self.channel} :{sender} slaps {random_user} around with a large trout!\r\n"
+                s.send(response.encode())
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
