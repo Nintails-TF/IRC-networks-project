@@ -18,13 +18,12 @@ class Socket:
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port))
             s.send(swagBot.botRegistration()) # Send NICK and USER details
-            # RETAIN INFO STEP - use recv to get data from IRC server
             s.send(swagBot.botJoinChannel())
             self.keepalive(s, swagBot)
 
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s, swagBot):
-        # This will loop until you CTRL+C
+        # This will loop until you CTRL+C - For testing purposes it helps to close the IRC server first then the bot.
         while True:
             try:
                 # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
@@ -104,7 +103,6 @@ class Bot:
         print("This is the current userlist " + str(self.userlist))
         # EXTRACT THE USERNAME FROM TEXT
         username = (text.split("!")[0]).strip(":")
-        # ADD USER TO USERLIST
         self.userlist.append(username)
         print("This is the updated userlist " + str(self.userlist))
         pass
@@ -114,20 +112,15 @@ class Bot:
         print("This is the current userlist " + str(self.userlist))
         # EXTRACT THE USERNAME FROM TEXT
         username = (text.split("!")[0]).strip(":")
-        # REMOVE USER FROM USERLIST
         self.userlist.remove(username)
         print("This is the updated userlist " + str(self.userlist))
         pass
 
     # The funnyfact function will cause the bot to respond to a private message with a fun fact
     def funnyfact(self, s, text):
-        print(text)
-        # We need to get the user who sent us a private message then to respond to them.
         username = (text.split("!")[0]).strip(":") # Getting the username of the person who messaged us
-        # OPEN FILE OF JOKES
         jokesFile = open("jokes.txt", "r")
-        # RANDOMLY SELECT ONE OF THE LINES
-        joke = random.choice(jokesFile.readlines())
+        joke = random.choice(jokesFile.readlines()) # Randomly selecting a joke
         # Formatting a message to be sent.
         response = "PRIVMSG " + username + " :Want to hear an amazing joke? "+ joke + "\r\n"
         jokesFile.close()
