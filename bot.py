@@ -194,10 +194,9 @@ class Bot:
                 response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
         s.send(response.encode())
 
-    # A function where the user can rename the bot
+    # A function for the user to be able to rename the bot
     def rename(self, s, text):
         command_parts = text.split(" ")  # Split the command into parts
-        print(command_parts)
 
         if len(command_parts) == 5:
             new_name = command_parts[4].strip("\r\n")
@@ -211,10 +210,10 @@ class Bot:
 
             # Send a message to the channel about the renaming
             response = f"PRIVMSG {self.channel} :I have been renamed to {new_name}!\r\n"
-            s.send(response.encode())
         else:
             response = f"PRIVMSG {self.channel} :Invalid syntax. Use !rename new_name to rename the bot.\r\n"
-            s.send(response.encode())
+
+        s.send(response.encode())
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
@@ -223,7 +222,7 @@ class Bot:
 
     # @return a formatted join statement to join the test channel
     def botJoinChannel(self):
-        join = "JOIN #test\r\n"
+        join = f"JOIN {self.channel}\r\n"
         return join.encode()
 
 def main():
