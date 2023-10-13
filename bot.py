@@ -34,7 +34,7 @@ class Socket:
                     self.pong(s, response) # Respond with pong
                 elif "353" in response: # When we see the 353 (userlist) IRC code.
                     response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
-                    # self.initUserlist(response, swagBot) # generate a userlist
+                    self.initUserlist(response, swagBot) # generate a userlist
                 # IF THE BOT IS PRIVATE MESSAGED
                 elif "PRIVMSG" in response:
                     swagBot.funnyfact(s, response)
