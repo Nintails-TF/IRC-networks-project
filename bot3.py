@@ -20,23 +20,13 @@ class Socket:
         self.port = port 
 
     def connectToServer(self):
-        # Setting the NICK and REAL name of the bot
-        swagBot = Bot("SwagBot", "Swag", [])
-        # Defining a socket, with Ipv6 using TCP socket
-        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.connect((self.host, self.port))
-            s.send(swagBot.botRegistration()) # Send NICK and USER details
-            s.send(swagBot.botJoinChannel())
-            self.keepalive(s, swagBot)
-
-    def connectToServer(self):
         # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port))
             swagBot = Bot(nickname, realname, channel)  # Create SwagBot instance here
             s.send(swagBot.botRegistration()) # Send NICK and USER details
             s.send(swagBot.botJoinChannel())
-            self.keepalive(s)
+            self.keepalive(s, swagBot)
 
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s, swagBot):
