@@ -2,6 +2,7 @@ import socket
 import re
 import random
 import argparse
+import time
 
 # Initialize the default values for host, port, realname, nickname, and channel
 host = "::1"
@@ -41,9 +42,15 @@ class Socket:
                 elif "353" in response: # When we see the 353 (userlist) IRC code.
                     response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
                     self.initUserlist(response, swagBot) # generate a userlist
-                # IF THE BOT IS PRIVATE MESSAGED
+                # IF THE BOT IS PRIVATE MESSAGED (this may be with a command)
                 elif "PRIVMSG" in response:
                     swagBot.funnyfact(s, response)
+                    if "!hello" in response:
+                        swagBot.greet(s, response)
+                    elif "!slap" in response:
+                        swagBot.slap(s, response)
+                    elif "!rename" in response:
+                        swagBot.rename(s, response)
                 # IF A USERS CONNECTS
                 elif "JOIN" in response:
                     swagBot.addUser(response)
@@ -133,13 +140,83 @@ class Bot:
 
     # The funnyfact function will cause the bot to respond to a private message with a fun fact
     def funnyfact(self, s, text):
-        username = (text.split("!")[0]).strip(":") # Getting the username of the person who messaged us
-        jokesFile = open("jokes.txt", "r")
-        joke = random.choice(jokesFile.readlines()) # Randomly selecting a joke
-        # Formatting a message to be sent.
-        response = "PRIVMSG " + username + " :Want to hear an amazing joke? "+ joke + "\r\n"
-        jokesFile.close()
+        username = text.split('!')[0].strip(':')
+        message_parts = text.split(' ', 3)  # Split the message into parts
+
+        if len(message_parts) >= 4:
+            target = message_parts[2]  # The target recipient
+
+            if target == self.nickname:
+                jokesFile = open("jokes.txt", "r")
+                joke = random.choice(jokesFile.readlines())
+                response = f"PRIVMSG {username} :Want to hear an amazing joke? {joke}\r\n"
+                jokesFile.close()
+                s.send(response.encode())
+
+    # A function where the bot will greet the user on command
+    def greet(self, s, text):
+        username = text.split('!')[0].strip(':')
+        message_parts = text.split(' ')
+
+        if len(message_parts) >= 4 and message_parts[3] == ":!hello\r\n":
+            # Get the current date and time
+            current_date = time.strftime("%Y-%m-%d")
+            current_time = time.strftime("%H:%M:%S")
+
+            # Form the greeting message
+            greeting = f"Greetings {username}, welcome to the server! The date is {current_date}, and the time is {current_time}."
+
+            # Send the greeting message to the channel
+            response = f"PRIVMSG {self.channel} :{greeting}\r\n"
+            s.send(response.encode())
+
+    # A function where the user can choose to slap another user
+    def slap(self, s, text):
+        command_parts = text.split(" ") # Split the command into parts
+        sender = text.split("!")[0].lstrip(":").lower()  # Convert to lowercase for case-insensitive comparison
+
+        if len(command_parts) == 5:
+            # User wants to clap a particular user
+            target_user = command_parts[4].strip("\r\n").lower()  # Convert to lowercase for case-insensitive comparison
+
+            if target_user == sender:
+                # Prevent the user from slapping themselves
+                response = f"PRIVMSG {self.channel} :You can't slap yourself!\r\n"
+            elif target_user == self.nickname.lower():
+                # Prevent the user from slapping the bot
+                response = f"PRIVMSG {self.channel} :You can't slap the bot!\r\n"
+            else:
+                response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
+        else:
+            # User wants to slap a random user
+            available_users = [user.lower() for user in self.userlist if user.lower() != self.nickname.lower() and user.lower() != sender]
+            if available_users:
+                target_user = random.choice(available_users)
+                response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
+
         s.send(response.encode())
+
+    # A function where the user can rename the bot
+    def rename(self, s, text):
+        command_parts = text.split(" ")  # Split the command into parts
+        print(command_parts)
+
+        if len(command_parts) == 5:
+            new_name = command_parts[4].strip("\r\n")
+
+            # Update the bot's nickname
+            self.nickname = new_name
+
+            # Re-register the bot with the new nickname
+            registration = self.botRegistration()
+            s.send(registration)
+
+            # Send a message to the channel about the renaming
+            response = f"PRIVMSG {self.channel} :I have been renamed to {new_name}!\r\n"
+            s.send(response.encode())
+        else:
+            response = f"PRIVMSG {self.channel} :Invalid syntax. Use !rename new_name to rename the bot.\r\n"
+            s.send(response.encode())
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
@@ -165,7 +242,6 @@ def main():
 
     # Connect the client socket to the IRC server and pass the bot object for communication
     clientSocket.connectToServer(bot)
-
 
 if __name__ == "__main__":
     main()
