@@ -1,3 +1,4 @@
+from logging import shutdown
 import socket
 import threading
 import time
@@ -16,113 +17,98 @@ class IRCServer:
 
     def __init__(self):
         # Initialize the server socket using IPv6 and TCP protocol
-        self.server_socket = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        self.s_sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.clients = []
         self.channels = {}
-        self.clients_lock = threading.Lock()
-        self.registered_users = []
-        self.disconnect_times = {}  # Stores recent disconnects by IP address
+        self.c_lock = threading.Lock()
+        self.reg_users = []
+        self.disconn_times = {}  # Stores recent disconnects by IP address
 
     def bind_and_listen(self):
         # Assigns the socket to the specified host and port number
-        self.server_socket.bind((self.HOST, self.PORT))
-
+        self.s_sock.bind((self.HOST, self.PORT))
         # Enable the server to accept connections, with a backlog of 5
-        self.server_socket.listen(5)
+        self.s_sock.listen(5)
         print(f"Listening on {self.HOST} : {self.PORT}")
 
     def cleanup_disconnects(self):
         while True:
             time.sleep(30)  # Clean up every 5 minutes
-            current_time = time.time()
-            ips_to_remove = [ip for ip, disconnect_time in self.disconnect_times.items() if current_time - disconnect_time > 600]  # Remove entries older than 10 minutes
-
+            curr_time = time.time()
+            ips_to_remove = [ip for ip, disconn_time in self.disconn_times.items() if curr_time - disconn_time > 600]  # Remove entries older than 10 minutes
             for ip in ips_to_remove:
-                del self.disconnect_times[ip]
+                del self.disconn_times[ip]
 
     def accept_connection(self):
-        # Waits for an incoming connection and then get the client socket and address
-        client_socket, client_address = self.server_socket.accept()
-        print(f"Accepted connection from {client_address[0]} : {client_address[1]}")
-        ip_address = client_address[0]
-        if ip_address in self.disconnect_times:
-            last_disconnect_time = self.disconnect_times[ip_address]
-            if time.time() - last_disconnect_time < IRCClient.TIMEOUT:  # 8 seconds as cooldown in this case
-                print(f"Connection attempt from {ip_address} but it's on cooldown.")
-                client_socket.close()
-                return None
-        return client_socket
+        c_sock, c_addr = self.s_sock.accept()
+        print(f"Accepted connection from {c_addr[0]} : {c_addr[1]}")
+        ip = c_addr[0]
+        if ip in self.disconn_times and time.time() - self.disconn_times[ip] < 8:
+            print(f"Connection attempt from {ip} but it's on cooldown.")
+            c_sock.close()
+            return None
+        return c_sock
 
-    def handle_individual_client(self, client_socket):
-        # Create an IRCClient instance for the given socket
-        client = IRCClient(client_socket, self)
-
+    def handle_ind_client(self, c_sock):
+        client = IRCClient(c_sock, self)
         # Lock to avoid issues with many clients at once.
-        self.clients_lock.acquire()
-
-        # Appending a new client to the list
+        self.c_lock.acquire()
         try:
+            # Add a client to the client list
             self.clients.append(client)
         finally:
             # Unlock after appending
-            self.clients_lock.release()
-
+            self.c_lock.release()
         # Start client tasks
         client.handle_client()
 
-    def shutdown_server(self):
+    def shutdown(self):
         # Sending a global notice to inform all users about the server shutdown
         self.broadcast_message(":server NOTICE :Server is shutting down\r\n")
         time.sleep(5)        
-
         # Closing all client connections
         for client in self.clients:
-            client.client_socket.close()
-        
+            client.c_sock.close()
         # Closing the server socket
-        self.server_socket.close()
+        self.s_sock.close()
         print("Server has been shut down.")
 
     def start(self):
         try:
             # Assigns the socket to the specified host and port number
             self.bind_and_listen()
-
             # Keeps the server running
             while True:
-                client_socket = self.accept_connection()
-                threading.Thread(
-                    target=self.handle_individual_client, args=(client_socket,)
-                ).start()
-
+                c_sock  = self.accept_connection()
+                if c_sock:  # Check if c_sock is not None before starting a thread
+                    threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
+                else:
+                    print(f"Socket was none")
         # Specific handling for socket errors
         except socket.error as se:
             print(f"Socket error in client: {se}")
-            
         # Catch value errror
         except ValueError as ve:
             print(f"Value error: {ve}")
-
         # Catch all other exceptions
         except Exception as e:
             print(f"Error in client: {e}")
-
         finally:
             # Close socket when exitting
-            self.server_socket.close()
+            self.s_sock.close()
 
-    def get_or_create_channel(self, channel_name):
+    def get_or_create_channel(self, ch_name):
         # If channel exists, return it; otherwise, create a new one.
-        if channel_name not in self.channels:
-            self.channels[channel_name] = Channel(channel_name)
-        return self.channels[channel_name]
+        if ch_name not in self.channels:
+            self.channels[ch_name] = Channel(ch_name)
+        return self.channels[ch_name]
     
 # -------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
 class IRCClient:
     TIMEOUT = 100
-    def __init__(self, client_socket, server):
-        self.client_socket = client_socket
+    def __init__(self, c_sock, server):
+        self.c_sock = c_sock
         self.server = server
         self.nickname = None
         self.channels = {}
@@ -151,35 +137,35 @@ class IRCClient:
     def send_message(self, message):
         try:
             print(f"Sending:\n{message}")
-            self.client_socket.send(message.encode("utf-8"))
+            self.c_sock.send(message.encode("utf-8"))
         except Exception as e:
             print(f"An error occurred while sending message: {e}")
 
     def notify_disconnect(self):
         # If the user has a nickname and is registered.
-        if self.nickname and self.nickname in self.server.registered_users:
+        if self.nickname and self.nickname in self.server.reg_users:
             # Remove the nickname from list
-            self.server.registered_users.remove(self.nickname)
+            self.server.reg_users.remove(self.nickname)
 
         # Lock to safely change the client list
-        self.server.clients_lock.acquire()
+        self.server.c_lock.acquire()
         try:
             # If this client is in the list
             if self in self.server.clients:
                 # Remove this client from the list
                 self.server.clients.remove(self)
         finally:
-            self.server.clients_lock.release()
+            self.server.c_lock.release()
 
     def register_client(self):
         # If nickname is already taken, inform the client
-        if self.nickname in self.server.registered_users:
+        if self.nickname in self.server.reg_users:
             self.send_message(
                 f":server 433 * {self.nickname} :Nickname is already in use\r\n"
             )
         else:
             self.is_registered = True
-            self.server.registered_users.append(self.nickname)
+            self.server.reg_users.append(self.nickname)
             self.send_message(
                 f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
             )
@@ -206,7 +192,7 @@ class IRCClient:
 
     def handle_cap_ls(self, message=None):
         # Respond to the CAP LS command indicating the server’s capabilities
-        self.client_socket.send(b":server CAP * LS :\r\n")
+        self.c_sock.send(b":server CAP * LS :\r\n")
 
     def handle_nick(self, message):
         new_nickname = message.split(" ")[1].strip()
@@ -225,12 +211,12 @@ class IRCClient:
         if old_nickname:
             notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
 
-            self.server.clients_lock.acquire()  # Lock for thread safety
+            self.server.c_lock.acquire()  # Lock for thread safety
             try:
                 for client in self.server.clients:
                     client.send_message(notification_msg)
             finally:
-                self.server.clients_lock.release()
+                self.server.c_lock.release()
 
         print(f"Nickname set to {self.nickname}")
     
@@ -261,36 +247,36 @@ class IRCClient:
 
     def broadcast_to_all_clients(self, message, old_nickname):
         # Lock for thread safety
-        self.server.clients_lock.acquire()  
+        self.server.c_lock.acquire()  
         try:
             for client in self.server.clients:
                 # Avoid sending back to the sender
                 if client.nickname != old_nickname:  
                     client.send_message(message)
         finally:
-            self.server.clients_lock.release()
+            self.server.c_lock.release()
 
     def handle_join(self, message):
         # Get channel name the user is attempting from the message
-        channel_name = message.split(" ")[1].strip()
-        if channel_name.startswith("#"):
+        ch_name = message.split(" ")[1].strip()
+        if ch_name.startswith("#"):
             # Join channel if channel name starts with # so is valid
-            self.join_channel(channel_name)
+            self.join_channel(ch_name)
         else:
             # If the users input is not valid for channel joining
-            self.send_message(f":server 461 {channel_name} :Not enough parameters\r\n")
+            self.send_message(f":server 461 {ch_name} :Not enough parameters\r\n")
 
-    def join_channel(self, channel_name):
+    def join_channel(self, ch_name):
         # Retrieve channel or create it
-        channel = self.server.get_or_create_channel(channel_name)
+        channel = self.server.get_or_create_channel(ch_name)
         
         # If channel does not exist in the users list of channels
-        if channel_name not in self.channels:
+        if ch_name not in self.channels:
             # Add user to the channel
             channel.add_client(self)
-            self.channels[channel_name] = channel
+            self.channels[ch_name] = channel
         
-            join_message = f":{self.nickname} JOIN :{channel_name}\r\n"
+            join_message = f":{self.nickname} JOIN :{ch_name}\r\n"
             
             # Send joining message to channel
             for client in channel.clients:
@@ -356,7 +342,7 @@ class IRCClient:
         target_client = None
 
         # Acquire the lock to ensure thread safety while searching for clients by nickname
-        self.server.clients_lock.acquire()
+        self.server.c_lock.acquire()
         try:
             # Iterate through the clients and find the one with the matching nickname
             for client in self.server.clients:
@@ -365,7 +351,7 @@ class IRCClient:
                     break
         finally:
             # Release the lock after the search is done
-            self.server.clients_lock.release()
+            self.server.c_lock.release()
 
         return target_client
 
@@ -378,9 +364,9 @@ class IRCClient:
             quit_msg = f"{self.nickname} has quit"
 
         # Notify channels of quit
-        for channel_name, channel in self.channels.items():
+        for ch_name, channel in self.channels.items():
             for client in self.server.clients:
-                if channel_name in client.channels and client != self:
+                if ch_name in client.channels and client != self:
                     client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
 
         # Clear the channels dictionary
@@ -390,7 +376,7 @@ class IRCClient:
         self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
 
         # Close this client's socket
-        self.client_socket.close()
+        self.c_sock.close()
 
         # Notify the server to remove this client from active clients
         self.notify_disconnect()
@@ -417,10 +403,10 @@ class IRCClient:
         try:
             while True:
                 # Set the timeout for the client socket.
-                self.client_socket.settimeout(IRCClient.TIMEOUT)
+                self.c_sock.settimeout(IRCClient.TIMEOUT)
                 
                 # Set to read up to 4096 bytes from the client.
-                data = self.client_socket.recv(4096)
+                data = self.c_sock.recv(4096)
                 
                 # If no data is received, it means the client has disconnected so ends loop.
                 if not data:
@@ -440,9 +426,9 @@ class IRCClient:
 
 
         except socket.timeout:
-            print(f"Client {self.nickname if self.nickname else self.client_socket.getpeername()} timed out.")
+            print(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} timed out.")
             self.notify_disconnect()  # This will remove the client from the server's list
-            self.client_socket.close()
+            self.c_sock.close()
         # Specific handling for socket errors
         except socket.error as se:
             print(f"Socket error in client: {se}")
@@ -459,11 +445,11 @@ class IRCClient:
 
     def handle_timeout(self):
         # Record the disconnect time of this IP
-        ip_address = self.client_socket.getpeername()[0]
-        self.server.disconnect_times[ip_address] = time.time()
+        ip = self.c_sock.getpeername()[0]
+        self.server.disconn_times[ip] = time.time()
 
         # Notify channels of client's timeout
-        for channel_name, channel in self.channels.items():
+        for ch_name, channel in self.channels.items():
             for client in channel.clients:  # Notice the change here, we should iterate over clients in the specific channel
                 if client != self:
                     client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
@@ -475,7 +461,7 @@ class IRCClient:
         self.send_message(f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n")
 
         # Close this client's socket
-        self.client_socket.close()
+        self.c_sock.close()
 
         # Notify the server to remove this client from active clients
         self.notify_disconnect()
