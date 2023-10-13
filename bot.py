@@ -105,7 +105,7 @@ class Bot:
         # EXTRACT THE USERNAME FROM TEXT
         username = (text.split("!")[0]).strip(":")
         # ADD USER TO USERLIST
-        print("We are adding a user!: "+ username)
+        self.userlist.append(username)
         print("This is the updated userlist " + str(self.userlist))
         pass
 
@@ -115,7 +115,7 @@ class Bot:
         # EXTRACT THE USERNAME FROM TEXT
         username = (text.split("!")[0]).strip(":")
         # REMOVE USER FROM USERLIST
-        print("We are removing a user!: "+ username)
+        self.userlist.remove(username)
         print("This is the updated userlist " + str(self.userlist))
         pass
 
