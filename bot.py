@@ -1,6 +1,7 @@
 import socket
-import argparse
 import re
+import random
+import argparse
 
 # Initialize the default values for host, port, realname, nickname, and channel
 host = "::1"
@@ -8,49 +9,19 @@ port = 6667
 realname = "Swag"
 nickname = "SwagBot"
 channel = "#test"
+userlist = []
 
-class Bot:
-    def __init__(self, nickname, realname, channel):
-        self.nickname = nickname
-        self.realname = realname
-        self.channel = channel
-        self.userlist = []
-
-    def botRegistration(self):
-        user = "NICK " + self.nickname + "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname + "\r\n"
-        return user.encode()
-
-    def botJoinChannel(self):
-        join = "JOIN " + self.channel + "\r\n"
-        return join.encode()
-
-    def initUserlist(self, users):
-        userlist = users.split("353")
-        print(userlist)
-
-    def funnyfact(self, s, text):
-        # split the PRIVMSG command to extract the username
-        parts = text.split("!")
-
-        # if there are parts to extract
-        if len(parts) > 0:
-            # extract the username by removing the leading ":" character
-            username = parts[0][1:]
-            print(username)
-
-            # create a response message with a fun fact and the username
-            response = f"PRIVMSG {username} :Here's a fun fact!\r\n"
-
-            # send the response message back to the IRC server
-            s.send(response.encode())
-
-
+"""
+The socket class is responsible for handling the network connections between the Bot (client) and
+the server.
+"""
 class Socket:
     def __init__(self, host, port):
         self.host = host
         self.port = port
 
     def connectToServer(self, bot):
+        # Defining a socket, with Ipv6 using TCP socket
         with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port))
             s.send(bot.botRegistration())
@@ -59,10 +30,10 @@ class Socket:
 
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s, swagBot):
-        # This will loop until you CTRL+C
+        # This will loop until you CTRL+C - For testing purposes it helps to close the IRC server first then the bot
         while True:
             try:
-                # The response is the text that the bot gets from the server, we now need to parse it to perform actions.
+                # The response is the text that the bot gets from the server, we now need to parse it to perform actions
                 response = s.recv(2048).decode()
                 # print(response) # Printing out response for testing
                 if response.startswith("PING"): # If we see PING request
@@ -73,7 +44,12 @@ class Socket:
                 # IF THE BOT IS PRIVATE MESSAGED
                 elif "PRIVMSG" in response:
                     swagBot.funnyfact(s, response)
-                # IF USERS CONNECT/DISCONNECT
+                # IF A USERS CONNECTS
+                elif "JOIN" in response:
+                    swagBot.addUser(response)
+                # IF A USERS DISCONNECTs
+                elif "QUIT" in response:
+                    swagBot.removeUser(response)
             except KeyboardInterrupt:
                 break
 
@@ -85,7 +61,7 @@ class Socket:
         response = "PONG " + ping_message + "\r\n"
         s.send(response.encode())
 
-    # userlist will grab the initial userlist and store it.
+    # userlist will grab the initial userlist and store it
     def initUserlist(self, users, bot):
         userlist = users[0].replace("\r", "") # turning array into string and removing \r
         # Split the userlist at the : and " "
@@ -106,24 +82,90 @@ class Socket:
     def setPort(self, port):
         self.port = port
 
+"""
+The Menu class is resonsible for handling user input via the CLI/terminal, ensuring that
+users can input flags to modify parameters. e.g.
+
+python bot.py --host ::1
+
+would set the Ipv6 address to connect to the localhost.
+"""
 class Menu:
     def __init__(self):
-        self.parser = argparse.ArgumentParser(description="IRC Bot Configuration")
-        self.parser.add_argument('--host', default=host, help="IPv6 address to connect to")
-        self.parser.add_argument('--port', type=int, default=port, help="Port to connect to")
-        self.parser.add_argument('--nickname', default=nickname, help="Nickname of the bot")
-        self.parser.add_argument('--realname', default=realname, help="Real name of the bot")
-        self.parser.add_argument('--channel', default=channel, help="Channel to join")
+        # Create an ArgumentParser object for handling command line arguments
+        self.parser = argparse.ArgumentParser(description="IRC Bot Options")
+        
+        # Add command line arguments with default values and descriptions
+        self.parser.add_argument("--host", default=host, help="IRC server host (IPv6)")
+        self.parser.add_argument("--port", type=int, default=port, help="IRC server port")
+        self.parser.add_argument("--nickname", default=nickname, help="Bot nickname")
+        self.parser.add_argument("--realname", default=realname, help="Bot real name")
+        self.parser.add_argument("--channel", default=channel, help="Channel to join")
 
-    def parse_arguments(self):
+    def get_args(self):
+        # Parse the command line arguments and return the result.
         return self.parser.parse_args()
+
+class Bot:
+    def __init__(self, nickname, realname, userlist, channel):
+        self.nickname = nickname
+        self.realname = realname
+        self.userlist = userlist
+        self.channel = channel
+
+    # addUser will add a new user to the bots userlist
+    def addUser(self, text):
+        print("This is the current userlist " + str(self.userlist))
+        # EXTRACT THE USERNAME FROM TEXT
+        username = (text.split("!")[0]).strip(":")
+        self.userlist.append(username)
+        print("This is the updated userlist " + str(self.userlist))
+        pass
+
+    # removeUser will remove a user from the bots userlist
+    def removeUser(self, text):
+        print("This is the current userlist " + str(self.userlist))
+        # EXTRACT THE USERNAME FROM TEXT
+        username = (text.split("!")[0]).strip(":")
+        self.userlist.remove(username)
+        print("This is the updated userlist " + str(self.userlist))
+        pass
+
+    # The funnyfact function will cause the bot to respond to a private message with a fun fact
+    def funnyfact(self, s, text):
+        username = (text.split("!")[0]).strip(":") # Getting the username of the person who messaged us
+        jokesFile = open("jokes.txt", "r")
+        joke = random.choice(jokesFile.readlines()) # Randomly selecting a joke
+        # Formatting a message to be sent.
+        response = "PRIVMSG " + username + " :Want to hear an amazing joke? "+ joke + "\r\n"
+        jokesFile.close()
+        s.send(response.encode())
+
+    # @return a formatted NICK and USER command
+    def botRegistration(self):
+        user = "NICK " + self.nickname +  "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
+        return user.encode() 
+
+    # @return a formatted join statement to join the test channel
+    def botJoinChannel(self):
+        join = "JOIN #test\r\n"
+        return join.encode()
 
 def main():
     menu = Menu()
-    args = menu.parse_arguments()
+    
+    # Parse the command line arguments and store the result in the 'args' variable.
+    args = menu.get_args()
+
+    # Create a Socket object with the port and host specified in cli arguments
     clientSocket = Socket(args.host, args.port)
-    swagBot = Bot(args.nickname, args.realname, args.channel)
-    clientSocket.connectToServer(swagBot)
+    
+    # Create a Bot object with the nickname, real name, and channel specified in cli arguments
+    bot = Bot(args.nickname, args.realname, [], args.channel)
+
+    # Connect the client socket to the IRC server and pass the bot object for communication
+    clientSocket.connectToServer(bot)
+
 
 if __name__ == "__main__":
     main()
