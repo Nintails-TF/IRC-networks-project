@@ -312,7 +312,36 @@ class ClientCommandProcessing:
         self.notify_disconnect()
             
     def handle_who(self, message=None):
-        self.send_message(":server 502 :WHO command is not supported\r\n")
+         # Extract the target channel from the WHO command, if specified.
+        parts = message.split(" ")
+        if len(parts) > 1:
+            target_channel = parts[1]
+        else:
+            target_channel = None
+
+        if target_channel is not None and not target_channel.startswith("#"):
+            # Invalid channel name format.
+            self.send_message(":server 403 :Invalid channel name\r\n")
+            return
+
+        # Get the list of clients in the specified channel (or all clients if not specified).
+        clients_in_channel = []
+        self.server.c_lock.acquire()
+        try:
+            for client in self.server.clients:
+                if target_channel is None or target_channel in client.channels:
+                    clients_in_channel.append(client)
+        finally:
+            self.server.c_lock.release()
+
+        # Send WHO information for each client.
+        for client in clients_in_channel:
+            if client.nickname:
+                info = f":{self.nickname} 352 {client.nickname} {client.c_sock.getpeername()[0]} {client.nickname} {client.hostname} {client.nickname} H :0 {client.real_name}\r\n"
+                self.send_message(info)
+
+        # End of WHO list.
+        self.send_message(":server 315 :End of /WHO list.\r\n")
 
     def handle_mode(self, message):
         self.send_message(":server 502 :MODE command is not supported\r\n")
