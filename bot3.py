@@ -29,6 +29,15 @@ class Socket:
             s.send(swagBot.botJoinChannel())
             self.keepalive(s, swagBot)
 
+    def connectToServer(self):
+        # Defining a socket, with Ipv6 using TCP socket
+        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+            s.connect((self.host, self.port))
+            swagBot = Bot(nickname, realname, channel)  # Create SwagBot instance here
+            s.send(swagBot.botRegistration()) # Send NICK and USER details
+            s.send(swagBot.botJoinChannel())
+            self.keepalive(s)
+
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s, swagBot):
         # This will loop until you CTRL+C - For testing purposes it helps to close the IRC server first then the bot.
@@ -157,8 +166,7 @@ def main():
     menu = Menu()
     args = menu.parse_arguments()
     clientSocket = Socket(args.host, args.port)
-    swagBot = Bot(args.nickname, args.realname, args.channel)
-    clientSocket.connectToServer(swagBot)
+    clientSocket.connectToServer()
 
 if __name__ == "__main__":
     main()
