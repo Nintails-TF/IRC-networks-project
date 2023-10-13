@@ -312,7 +312,7 @@ class ClientCommandProcessing:
         self.notify_disconnect()
             
     def handle_who(self, message=None):
-         # Extract the target channel from the WHO command, if specified.
+        # Extract the target channel from the WHO command, if specified.
         parts = message.split(" ")
         if len(parts) > 1:
             target_channel = parts[1]
@@ -337,7 +337,7 @@ class ClientCommandProcessing:
         # Send WHO information for each client.
         for client in clients_in_channel:
             if client.nickname:
-                info = f":{self.nickname} 352 {client.nickname} {client.c_sock.getpeername()[0]} {client.nickname} {client.hostname} {client.nickname} H :0 {client.real_name}\r\n"
+                info = f":server 352 {self.nickname} {target_channel} {client.nickname} {client.c_sock.getpeername()[0]} :{client.nickname}\r\n"
                 self.send_message(info)
 
         # End of WHO list.
