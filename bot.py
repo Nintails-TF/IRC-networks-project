@@ -101,16 +101,16 @@ class Bot:
 
     # addUser will add a new user to the bots userlist
     def addUser(self, text):
-        print("This is the current userlist " + self.userlist)
+        print("This is the current userlist " + str(self.userlist))
         print("We are adding a user!: "+ text)
-        print("This is the updated userlist " + self.userlist)
+        print("This is the updated userlist " + str(self.userlist))
         pass
 
     # removeUser will remove a user from the bots userlist.
     def removeUser(self, text):
-        print("This is the current userlist " + self.userlist)
+        print("This is the current userlist " + str(self.userlist))
         print("We are removing a user!: "+ text)
-        print("This is the updated userlist " + self.userlist)
+        print("This is the updated userlist " + str(self.userlist))
         pass
 
     # The funnyfact function will cause the bot to respond to a private message with a fun fact
