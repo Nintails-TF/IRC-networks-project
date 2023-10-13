@@ -40,10 +40,10 @@ class Socket:
                     swagBot.funnyfact(s, response)
                 # IF A USERS CONNECTS
                 elif "JOIN" in response:
-                    swagBot.addUser(s, response)
+                    swagBot.addUser(response)
                 # IF A USERS DISCONNECTs
                 elif "QUIT" in response:
-                    swagBot.removeUser(s, response)
+                    swagBot.removeUser(response)
             except KeyboardInterrupt:
                 break
 
