@@ -2,6 +2,7 @@ import socket
 import re
 import random
 import argparse
+from datetime import datetime
 
 # Initialize the default values for host, port, realname, nickname, and channel
 host = "::1"
@@ -44,6 +45,11 @@ class Socket:
                 # IF THE BOT IS PRIVATE MESSAGED
                 elif "PRIVMSG" in response:
                     swagBot.funnyfact(s, response)
+                    # Check if it's a slap command
+                    if "!slap" in response:
+                        swagBot.slap(s, response)
+                    elif "!hello" in response:
+                        swagBot.greet(s, response)
                 # IF A USERS CONNECTS
                 elif "JOIN" in response:
                     swagBot.addUser(response)
@@ -131,14 +137,51 @@ class Bot:
         print("This is the updated userlist " + str(self.userlist))
         pass
 
-    # The funnyfact function will cause the bot to respond to a private message with a fun fact
     def funnyfact(self, s, text):
-        username = (text.split("!")[0]).strip(":") # Getting the username of the person who messaged us
-        jokesFile = open("jokes.txt", "r")
-        joke = random.choice(jokesFile.readlines()) # Randomly selecting a joke
-        # Formatting a message to be sent.
-        response = "PRIVMSG " + username + " :Want to hear an amazing joke? "+ joke + "\r\n"
-        jokesFile.close()
+        username = text.split('!')[0].strip(':')
+        message_parts = text.split(' ', 3)  # Split the message into parts
+
+        if len(message_parts) >= 4:
+            target = message_parts[2]  # The target recipient
+
+            if target == self.nickname:
+                jokesFile = open("jokes.txt", "r")
+                joke = random.choice(jokesFile.readlines())
+                response = f"PRIVMSG {username} :Want to hear an amazing joke? {joke}\r\n"
+                jokesFile.close()
+                s.send(response.encode())
+
+    def slap(self, s, text):
+        command_parts = text.split(" ") # Split the command into parts
+        sender = text.split("!")[0].lstrip(":").lower()  # Convert to lowercase for case-insensitive comparison
+
+        if len(command_parts) == 5:
+            # User wants to clap a particular user
+            target_user = command_parts[4].strip("\r\n").lower()  # Convert to lowercase for case-insensitive comparison
+
+            if target_user == sender:
+                # Prevent the user from slapping themselves
+                response = f"PRIVMSG {self.channel} :You can't slap yourself!\r\n"
+            elif target_user == self.nickname.lower():
+                # Prevent the user from slapping the bot
+                response = f"PRIVMSG {self.channel} :You can't slap the bot!\r\n"
+            else:
+                response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
+        else:
+            # User wants to slap a random user
+            available_users = [user.lower() for user in self.userlist if user.lower() != self.nickname.lower() and user.lower() != sender]
+            if available_users:
+                target_user = random.choice(available_users)
+                response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
+
+        s.send(response.encode())
+
+    # Add this method to the Bot class
+    def greet_user(self, s, text):
+        username = text.split('!')[0].strip(':')
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # Get the current date and time
+
+        response = f"PRIVMSG {username} :Greetings {username}, welcome to the server. The date is {current_time.split()[0]}, and the time is {current_time.split()[1]}.\r\n"
         s.send(response.encode())
 
     # @return a formatted NICK and USER command
