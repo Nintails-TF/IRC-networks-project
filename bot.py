@@ -217,6 +217,5 @@ def main():
     # Connect the client socket to the IRC server and pass the bot object for communication
     clientSocket.connectToServer(bot)
 
-
 if __name__ == "__main__":
     main()
