@@ -102,14 +102,20 @@ class Bot:
     # addUser will add a new user to the bots userlist
     def addUser(self, text):
         print("This is the current userlist " + str(self.userlist))
-        print("We are adding a user!: "+ text)
+        # EXTRACT THE USERNAME FROM TEXT
+        username = (text.split("!")[0]).strip(":")
+        # ADD USER TO USERLIST
+        print("We are adding a user!: "+ username)
         print("This is the updated userlist " + str(self.userlist))
         pass
 
     # removeUser will remove a user from the bots userlist.
     def removeUser(self, text):
         print("This is the current userlist " + str(self.userlist))
-        print("We are removing a user!: "+ text)
+        # EXTRACT THE USERNAME FROM TEXT
+        username = (text.split("!")[0]).strip(":")
+        # REMOVE USER FROM USERLIST
+        print("We are removing a user!: "+ username)
         print("This is the updated userlist " + str(self.userlist))
         pass
 
