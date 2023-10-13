@@ -2,6 +2,7 @@ import socket
 import re
 import random
 import argparse
+import time
 
 # Initialize the default values for host, port, realname, nickname, and channel
 host = "::1"
@@ -47,6 +48,8 @@ class Socket:
                     # Check if it's a slap command
                     if "!slap" in response:
                         swagBot.slap(s, response)
+                    elif "!hello" in response:
+                        swagBot.greet(s, response)
                 # IF A USERS CONNECTS
                 elif "JOIN" in response:
                     swagBot.addUser(response)
@@ -148,7 +151,6 @@ class Bot:
                 jokesFile.close()
                 s.send(response.encode())
 
-
     def slap(self, s, text):
         command_parts = text.split(" ") # Split the command into parts
         sender = text.split("!")[0].lstrip(":").lower()  # Convert to lowercase for case-insensitive comparison
@@ -174,6 +176,22 @@ class Bot:
 
         s.send(response.encode())
 
+    def greet(self, s, text):
+        username = text.split('!')[0].strip(':')
+        message_parts = text.split(' ')
+
+        if len(message_parts) >= 4 and message_parts[3] == ":!hello\r\n":
+            # Get the current date and time
+            current_date = time.strftime("%Y-%m-%d")
+            current_time = time.strftime("%H:%M:%S")
+
+            # Form the greeting message
+            greeting = f"Greetings {username}, welcome to the server! The date is {current_date}, and the time is {current_time}."
+
+            # Send the greeting message to the channel
+            response = f"PRIVMSG {self.channel} :{greeting}\r\n"
+            s.send(response.encode())
+
     # @return a formatted NICK and USER command
     def botRegistration(self):
         user = "NICK " + self.nickname +  "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
@@ -198,7 +216,6 @@ def main():
 
     # Connect the client socket to the IRC server and pass the bot object for communication
     clientSocket.connectToServer(bot)
-
 
 if __name__ == "__main__":
     main()
