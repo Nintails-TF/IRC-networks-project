@@ -395,26 +395,12 @@ class IRCClient:
         # Notify the server to remove this client from active clients
         self.notify_disconnect()
             
-    # handles who method
-    def handle_who(self, message):
-        parts = message.split(" ")
-        if len(parts) < 2:
-            self.send_message(f":server 461 {self.nickname} WHO :Not enough parameters\r\n")
-            return
+    # Not yet implemented
+    def handle_who(self, message=None):
+        self.send_message(":server 502 :WHO command is not supported\r\n")
 
-        channel_name = parts[1].strip()
-        if channel_name not in self.channels:
-            self.send_message(f":server 403 {self.nickname} {channel_name} :No such channel\r\n")
-            return
-
-        channel = self.channels[channel_name]
-        for client in channel.clients:
-            self.send_message(f":server 352 {self.nickname} {channel_name} {client.nickname} ...\r\n")
-
-        self.send_message(f":server 315 {self.nickname} {channel_name} :End of WHO list\r\n")
-    
+    # Not yet implemented
     def handle_mode(self, message):
-        # Will be supported later but now just send not supported
         self.send_message(":server 502 :MODE command is not supported\r\n")
     
     # Not yet implemented
