@@ -290,6 +290,11 @@ class ClientCommandProcessing:
                 if client != self:  
                     client.send_message(join_message)
 
+            # Send a notice to the channel with the list of connected users
+            users_list = ' '.join(client.nickname for client in channel.clients)
+            notice_message = f"Users in {ch_name}: {users_list}"
+            channel.send_notice("server", notice_message)  # Assuming "server" as the sender.
+
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
         self.send_message(f"PONG :{ping_data}\r\n")
@@ -312,7 +317,36 @@ class ClientCommandProcessing:
         self.notify_disconnect()
             
     def handle_who(self, message=None):
-        self.send_message(":server 502 :WHO command is not supported\r\n")
+        # Extract the target channel from the WHO command, if specified.
+        parts = message.split(" ")
+        if len(parts) > 1:
+            target_channel = parts[1]
+        else:
+            target_channel = None
+
+        if target_channel is not None and not target_channel.startswith("#"):
+            # Invalid channel name format.
+            self.send_message(":server 403 :Invalid channel name\r\n")
+            return
+
+        # Get the list of clients in the specified channel (or all clients if not specified).
+        clients_in_channel = []
+        self.server.c_lock.acquire()
+        try:
+            for client in self.server.clients:
+                if target_channel is None or target_channel in client.channels:
+                    clients_in_channel.append(client)
+        finally:
+            self.server.c_lock.release()
+
+        # Send WHO information for each client.
+        for client in clients_in_channel:
+            if client.nickname:
+                info = f":server 352 {self.nickname} {target_channel} {client.nickname} {client.c_sock.getpeername()[0]} :{client.nickname}\r\n"
+                self.send_message(info)
+
+        # End of WHO list.
+        self.send_message(":server 315 :End of /WHO list.\r\n")
 
     def handle_mode(self, message):
         self.send_message(":server 502 :MODE command is not supported\r\n")
@@ -374,6 +408,11 @@ class Channel:
                 client.send_message(
                     f":{origin_client.nickname} PRIVMSG {self.name} :{message}\r\n"
                 )
+
+    def send_notice(self, sender, message):
+        notice = f":{sender} NOTICE {self.name} :{message}\r\n"
+        for client in self.clients:
+            client.send_message(notice)
 
 
 if __name__ == "__main__":
