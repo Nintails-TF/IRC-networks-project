@@ -138,7 +138,6 @@ class Bot:
         print("This is the updated userlist " + str(self.userlist))
         pass
 
-    # The funnyfact function will cause the bot to respond to a private message with a fun fact
     def funnyfact(self, s, text):
         username = text.split('!')[0].strip(':')
         message_parts = text.split(' ', 3)  # Split the message into parts
@@ -193,7 +192,6 @@ class Bot:
             if available_users:
                 target_user = random.choice(available_users)
                 response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
-
         s.send(response.encode())
 
     # A function where the user can rename the bot
