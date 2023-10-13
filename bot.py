@@ -1,5 +1,6 @@
 import socket
 import re
+import random
 
 """
 The socket class is responsible for handling the network connections between the Bot (client) and
@@ -98,8 +99,14 @@ class Bot:
         print(text)
         # We need to get the user who sent us a private message then to respond to them.
         username = (text.split("!")[0]).strip(":") # Getting the username of the person who messaged us
+        # OPEN FILE OF JOKES
+        jokesFile = open("jokes.txt", "r")
+        # RANDOMLY SELECT ONE OF THE LINES
+        joke = random.choice(jokesFile.readlines())
         # Formatting a message to be sent.
         response = "PRIVMSG " + username + " :Hello, my name is "+ self.nickname+ "\r\n"
+        response = "PRIVMSG " + username + " :Want to hear an amazing joke? "+ joke + "\r\n"
+        jokesFile.close()
         s.send(response.encode())
 
 
