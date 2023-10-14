@@ -315,7 +315,7 @@ class ClientCommandProcessing:
     def process_message(self, message):
         handled = False
         for cmd, handler in self.commands.items():
-            if message.startswith(cmd):
+            if message.upper().startswith(cmd):
                 handler(message)
                 handled = True
                 break
