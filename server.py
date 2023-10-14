@@ -40,6 +40,7 @@ class IRCServer:
             ]
             for ip in ips_to_remove:
                 del self.disconn_times[ip]
+                print(f"Removed IP {ip} from cooldown list.")
 
     def accept_connection(self):
         c_sock, c_addr = self.s_sock.accept()
@@ -69,6 +70,9 @@ class IRCServer:
         print("Server has been shut down.")
 
     def start(self):
+        cleanup_thread = threading.Thread(target=self.cleanup_disconnects)
+        cleanup_thread.daemon = True
+        cleanup_thread.start()
         try:
             self.bind_and_listen()
             while True:
@@ -94,7 +98,6 @@ class IRCServer:
             self.channels[ch_name] = Channel(ch_name)
         return self.channels[ch_name]
 
-
 class ClientConnection:
     def send_message(self, message):
         if not message:
@@ -112,12 +115,21 @@ class ClientConnection:
     def notify_disconnect(self):
         if self.nickname and self.nickname in self.server.reg_users:
             self.server.reg_users.remove(self.nickname)
+        
         self.server.c_lock.acquire()
         try:
             if self in self.server.clients:
                 self.server.clients.remove(self)
         finally:
             self.server.c_lock.release()
+
+        # Gracefully shutting down the client socket
+        try:
+            self.c_sock.shutdown(socket.SHUT_RDWR)
+        except socket.error:
+            pass  # Ignore if the socket is already closed or in a state that doesn't allow shutdown
+        self.c_sock.close()
+
 
     def handle_client(self):
         try:
@@ -162,7 +174,11 @@ class ClientConnection:
         except ValueError as ve:
             logging.error(f"Value error: {ve}")
         except Exception as e:
-            logging.error(f"Unexpected error in client: {e}")
+            if str(e) == "Client disconnected":
+                print(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} has disconnected.")
+            else:
+                print(f"Error in client: {e}")
+
         finally:
             self.notify_disconnect()
 
@@ -413,19 +429,21 @@ class ClientCommandProcessing:
 
     def handle_quit(self, message):
         parts = message.split(" ", 1)
-        quit_msg = parts[1] if len(parts) > 1 else f"{self.nickname} has quit"
+        if len(parts) > 1:
+            quit_msg = parts[1]
+        else:
+            quit_msg = f"{self.nickname} has quit"
 
-        quit_notification = f":{self.nickname} QUIT :{quit_msg}\r\n"
-
-        for client in self.server.clients:
-            for ch_name in client.channels:
-                if ch_name in self.channels and client != self:
-                    client.send_message(quit_notification)
+        for ch_name, channel in self.channels.items():
+            for client in self.server.clients:
+                if ch_name in client.channels and client != self:
+                    client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
 
         self.channels.clear()
-        self.send_message(quit_notification)
-        self.c_sock.close()
+        self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
         self.notify_disconnect()
+        raise Exception("Client disconnected")  # Add this line
+
 
 
 
@@ -484,11 +502,28 @@ class ClientCommandProcessing:
     def handle_motd(self, message=None):
         self.send_message(":server 502 :MOTD command is not supported\r\n")
 
+    def handle_list(self, message=None):
+        print("GOT TO METHOD")
+        if not self.server.channels:
+            self.send_message(":server 323 :No channels available\r\n")
+            return
+        for ch_name, channel in self.server.channels.items():
+            self.send_message(f":server 322 {self.nickname} {ch_name} :No topic set\r\n")
+        self.send_message(":server 323 :End of /LIST\r\n")
+
+    def handle_lusers(self, message=None):
+        total_users = len(self.server.reg_users)
+        total_channels = len(self.server.channels)
+        self.send_message(f":server 251 {self.nickname} :There are {total_users} users on 1 server(s)\r\n")
+        self.send_message(f":server 254 {self.nickname} {total_channels} :channels formed\r\n")
+        self.send_message(f":server 255 {self.nickname} :I have {total_users} clients and 1 servers\r\n")
+
+
 
 class IRCClient(
     ClientConnection, ClientRegistration, ClientMessaging, ClientCommandProcessing
 ):
-    TIMEOUT = 100
+    TIMEOUT = 500
 
     def __init__(self, c_sock, server):
         self.c_sock = c_sock
@@ -514,6 +549,8 @@ class IRCClient(
             "KICK": self.handle_kick,
             "MOTD": self.handle_motd,
             "PART": self.handle_part,
+            "LIST": self.handle_list,
+            "LUSERS": self.handle_lusers
         }
 
     def set_user_mode(self, new_mode):
