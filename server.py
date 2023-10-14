@@ -120,28 +120,26 @@ class ClientConnection:
     def notify_disconnect(self):
         if self.nickname and self.nickname in self.server.reg_users:
             self.server.reg_users.remove(self.nickname)
-        
         self.server.c_lock.acquire()
         try:
             if self in self.server.clients:
                 self.server.clients.remove(self)
         finally:
             self.server.c_lock.release()
-
-        try:
-            if self.c_sock.fileno() != -1:
+        if self.is_socket_open():
+            try:
                 self.c_sock.shutdown(socket.SHUT_RDWR)
-            else:
-                logging.warning("Attempt to shutdown a non-socket or already closed socket.")
-        except socket.error as e:
-            logging.error(f"Socket error during shutdown: {e}")
-        finally:
-            self.c_sock.close()
-
+            except socket.error as e:
+                logging.error(f"Socket error during shutdown: {e}")
+            finally:
+                self.c_sock.close()
+                self.disconnected = True
+        else:
+            logging.warning("Attempt to shutdown a non-socket or already closed socket.")
 
     def handle_client(self):
         try:
-            while True:
+            while not self.disconnected:  # Check if the client is disconnected
                 try:
                     if not self.is_socket_open():
                         logging.error("Socket is already closed.")
@@ -161,7 +159,6 @@ class ClientConnection:
                 
                 try:
                     self.buffer += data.decode("utf-8")
-                    
                 except UnicodeDecodeError as ue:
                     logging.error(f"Unicode decode error: {ue}")
                     continue                    
@@ -186,7 +183,6 @@ class ClientConnection:
                 logging.info(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} has disconnected.")
             else:
                 logging.error(f"Error in client: {e}")
-
         finally:
             if self.is_socket_open():
                 self.notify_disconnect()
@@ -199,11 +195,8 @@ class ClientConnection:
 
     def handle_timeout(self):
         try:
-            # Get IP of the client
             ip = self.c_sock.getpeername()[0]
             self.server.disconn_times[ip] = time.time()
-
-            # Notify all clients in the channel of the timeout
             for ch_name, channel in self.channels.items():
                 for client in channel.clients:
                     if client != self and client.c_sock.fileno() != -1:
@@ -213,8 +206,6 @@ class ClientConnection:
                             logging.error(f"Error notifying client of timeout: {e}")
 
                 channel.remove_client(self)
-
-            # Send timeout message to the client
             self.send_message(f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n")
 
         except socket.error as e:
@@ -437,25 +428,20 @@ class ClientCommandProcessing:
     def join_channel(self, ch_name):
         channel = self.server.get_or_create_channel(ch_name)
         if ch_name not in self.channels:
-            # Add the current client to the channel if not already in it
             channel.add_client(self)
             self.channels[ch_name] = channel
         
             join_message = f":{self.nickname} JOIN :{ch_name}\r\n"
             
-            # Send JOIN message to all clients in the channel
             for client in channel.clients:
                 if client != self:
                     client.send_message(join_message)
 
-            # Create a list of unique user nicknames in the channel
             user_nicknames = set(client.nickname for client in channel.clients)
             
-            # Create a message listing users in the channel
             users_list = " ".join(user_nicknames)
             notice_message = f"Users in {ch_name}: {users_list}"
             
-            # Send the notice message to the server and the channel
             channel.send_notice("server", notice_message)
             
     def handle_ping(self, message):
@@ -476,8 +462,12 @@ class ClientCommandProcessing:
 
         self.channels.clear()
         self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
+        
+        self.disconnected = True  # Set the disconnected attribute to True
+        
         self.notify_disconnect()
-        logging.info(f"{self.nickname} has disconnnected")
+        logging.info(f"{self.nickname} has disconnected")
+
 
 
 
@@ -569,6 +559,7 @@ class IRCClient(
         self.user_received = False
         self.buffer = ""
         self.is_registered = False
+        self.disconnected = False
 
         self.commands = {
             "CAP LS": self.handle_cap_ls,
