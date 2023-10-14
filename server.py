@@ -38,6 +38,7 @@ class IRCServer:
             ]
             for ip in ips_to_remove:
                 del self.disconn_times[ip]
+                print(f"Removed IP {ip} from cooldown list.")
 
     def accept_connection(self):
         c_sock, c_addr = self.s_sock.accept()
@@ -67,6 +68,9 @@ class IRCServer:
         print("Server has been shut down.")
 
     def start(self):
+        cleanup_thread = threading.Thread(target=self.cleanup_disconnects)
+        cleanup_thread.daemon = True
+        cleanup_thread.start()
         try:
             self.bind_and_listen()
             while True:
@@ -91,7 +95,6 @@ class IRCServer:
             self.channels[ch_name] = Channel(ch_name)
         return self.channels[ch_name]
 
-
 class ClientConnection:
     def send_message(self, message):
         try:
@@ -103,12 +106,21 @@ class ClientConnection:
     def notify_disconnect(self):
         if self.nickname and self.nickname in self.server.reg_users:
             self.server.reg_users.remove(self.nickname)
+        
         self.server.c_lock.acquire()
         try:
             if self in self.server.clients:
                 self.server.clients.remove(self)
         finally:
             self.server.c_lock.release()
+
+        # Gracefully shutting down the client socket
+        try:
+            self.c_sock.shutdown(socket.SHUT_RDWR)
+        except socket.error:
+            pass  # Ignore if the socket is already closed or in a state that doesn't allow shutdown
+        self.c_sock.close()
+
 
     def handle_client(self):
         try:
@@ -133,12 +145,13 @@ class ClientConnection:
             self.c_sock.close()
         except socket.error as se:
             print(f"Socket error in client: {se}")
-
         except ValueError as ve:
             print(f"Value error: {ve}")
-
         except Exception as e:
-            print(f"Error in client: {e}")
+            if str(e) == "Client disconnected":
+                print(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} has disconnected.")
+            else:
+                print(f"Error in client: {e}")
         finally:
             self.notify_disconnect()
 
@@ -345,8 +358,9 @@ class ClientCommandProcessing:
 
         self.channels.clear()
         self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
-        self.c_sock.close()
         self.notify_disconnect()
+        raise Exception("Client disconnected")  # Add this line
+
 
     def handle_who(self, message=None):
         parts = message.split(" ")
