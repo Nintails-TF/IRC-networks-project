@@ -133,7 +133,7 @@ class ClientConnection:
                 self.c_sock.shutdown(socket.SHUT_RDWR)
             else:
                 logging.warning("Attempt to shutdown a non-socket or already closed socket.")
-        except socket.error:
+        except socket.error as e:
             logging.error(f"Socket error during shutdown: {e}")
             pass
         self.c_sock.close()

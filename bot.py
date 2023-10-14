@@ -49,6 +49,7 @@ class Socket:
             try:
                 # The response is the text that the bot gets from the server, we now need to parse it to perform actions
                 response = s.recv(2048).decode()
+                print(f"Received: {response}")
                 if not response:
                 # Server closed the connection or an error occurred
                     print("Connection to the server has been closed.")
@@ -94,6 +95,7 @@ class Socket:
             # Send a PONG response back to the server
             response = "PONG " + ping_message + "\r\n"
             s.send(response.encode())
+            print(f"Sent: {response}")
         except IndexError:
             print("Invalid PING message received, unable to send PONG response.")
         except Exception as e:
@@ -192,6 +194,7 @@ class Bot:
                     fact = random.choice(factsFile.readlines())
                     response = f"PRIVMSG {username} :Want to hear a cool fact? {fact}\r\n"
                 s.send(response.encode())
+                print(f"Sent: {response}")
 
     # A function where the bot will greet the user on command
     def greet(self, s, text):
@@ -209,6 +212,7 @@ class Bot:
             # Send the greeting message to the channel
             response = f"PRIVMSG {self.channel} :{greeting}\r\n"
             s.send(response.encode())
+            print(f"Sent: {response}")
 
     # A function where the user can choose to slap another user
     def slap(self, s, text):
@@ -239,6 +243,7 @@ class Bot:
                 target_user = random.choice(available_users)
                 response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
         s.send(response.encode())
+        print(f"Sent: {response}")
 
     # A function for the user to be able to rename the bot
     def rename(self, s, text):
@@ -260,6 +265,7 @@ class Bot:
             response = f"PRIVMSG {self.channel} :Invalid syntax. Use !rename new_name to rename the bot.\r\n"
 
         s.send(response.encode())
+        print(f"Sent: {response}")
 
     # @return a formatted NICK and USER command
     def bot_registration(self):
