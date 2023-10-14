@@ -176,10 +176,10 @@ class Bot:
             target = message_parts[2]  # The target recipient
 
             if target == self.name:
-                factsFile = open("facts.txt", "r")
-                fact = random.choice(factsFile.readlines())
-                response = f"PRIVMSG {username} :Want to hear a cool fact? {fact}\r\n"
-                factsFile.close()
+                # Use a context manager to open and read from the file
+                with open("facts.txt", "r") as factsFile:
+                    fact = random.choice(factsFile.readlines())
+                    response = f"PRIVMSG {username} :Want to hear a cool fact? {fact}\r\n"
                 s.send(response.encode())
 
     # A function where the bot will greet the user on command
