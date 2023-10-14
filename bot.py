@@ -21,19 +21,19 @@ class Socket:
         self.port = port
 
     # Method to connect the bot to the server
-    def connectToServer(self, bot):
+    def connect_to_server(self, bot):
         try:
             with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
                 s.connect((self.host, self.port))
-                s.send(bot.botRegistration())
-                s.send(bot.botJoinChannel())
-                self.keepalive(s, bot)
+                s.send(bot.bot_registration())
+                s.send(bot.bot_join_channel())
+                self.keep_alive(s, bot)
                 # Handle socket-related errors (e.g., server down, host/port issues)
         except socket.error as e:
             print(f"Socket error: {e}")
 
-    # Keepalive will keep the bot in the IRC server
-    def keepalive(self, s, bot):
+    # keep_alive will keep the bot in the IRC server
+    def keep_alive(self, s, bot):
         # This will loop until you CTRL+C - For testing purposes it helps to close the IRC server first then the bot
         while True:
             try:
@@ -47,10 +47,10 @@ class Socket:
                     self.pong(s, response) # Respond with pong
                 elif "353" in response: # When we see the 353 (userlist) IRC code.
                     response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
-                    self.initUserlist(response, bot) # generate a userlist
+                    self.init_user_list(response, bot) # generate a userlist
                 # IF THE BOT IS PRIVATE MESSAGED (this may be with a command)
                 elif "PRIVMSG" in response:
-                    bot.givefact(s, response)
+                    bot.give_fact(s, response)
                     if "!hello" in response:
                         bot.greet(s, response)
                     elif "!slap" in response:
@@ -59,10 +59,10 @@ class Socket:
                         bot.rename(s, response)
                 # IF A USERS CONNECTS
                 elif "JOIN" in response:
-                    bot.addUser(response)
+                    bot.add_user(response)
                 # IF A USERS DISCONNECTs
                 elif "QUIT" in response:
-                    bot.removeUser(response)
+                    bot.remove_user(response)
             except KeyboardInterrupt:
                 break
             # Handle the various errors that could occur
@@ -90,7 +90,7 @@ class Socket:
             print(f"Error handling PING request: {e}")
 
     # Method to intialise the userlist
-    def initUserlist(self, users, bot):
+    def init_user_list(self, users, bot):
         try:
             if users and len(users) > 0:
                 userlist = users[0].replace("\r", "")  # Remove any carriage return characters
@@ -108,16 +108,16 @@ class Socket:
         except Exception as e:
             print(f"Error initializing userlist: {e}")
 
-    def getHost(self):
+    def get_host(self):
         return self.host
 
-    def setHost(self, host):
+    def set_host(self, host):
         self.host = host
 
-    def getPort(self):
+    def get_port(self):
         return self.port
 
-    def setPort(self, port):
+    def set_port(self, port):
         self.port = port
 
 """
@@ -149,8 +149,8 @@ class Bot:
         self.channel = channel
         self.userlist = userlist
 
-    # addUser will add a new user to the bots userlist
-    def addUser(self, text):
+    # add_user will add a new user to the bots userlist
+    def add_user(self, text):
         print("This is the current userlist " + str(self.userlist))
         # EXTRACT THE USERNAME FROM TEXT
         username = (text.split("!")[0]).strip(":")
@@ -158,8 +158,8 @@ class Bot:
         print("This is the updated userlist " + str(self.userlist))
         pass
 
-    # removeUser will remove a user from the bots userlist
-    def removeUser(self, text):
+    # remove_user will remove a user from the bots userlist
+    def remove_user(self, text):
         print("This is the current userlist " + str(self.userlist))
         # EXTRACT THE USERNAME FROM TEXT
         username = (text.split("!")[0]).strip(":")
@@ -168,7 +168,7 @@ class Bot:
         pass
 
     # Method to provide a fact from a given file
-    def givefact(self, s, text):
+    def give_fact(self, s, text):
         username = text.split('!')[0].strip(':')
         message_parts = text.split(' ', 3)  # Split the message into parts
 
@@ -240,7 +240,7 @@ class Bot:
             self.name = new_name
 
             # Re-register the bot with the new name
-            registration = self.botRegistration()
+            registration = self.bot_registration()
             s.send(registration)
 
             # Send a message to the channel about the renaming
@@ -251,12 +251,12 @@ class Bot:
         s.send(response.encode())
 
     # @return a formatted NICK and USER command
-    def botRegistration(self):
+    def bot_registration(self):
         user = "NICK " + self.name +  "\r\nUSER " + self.name + " 0 * " + ":" + self.name + "\r\n"
         return user.encode() 
 
     # @return a formatted join statement to join the test channel
-    def botJoinChannel(self):
+    def bot_join_channel(self):
         join = f"JOIN {self.channel}\r\n"
         return join.encode()
 
@@ -267,13 +267,13 @@ def main():
     args = menu.get_args()
 
     # Create a Socket object with the port and host specified in cli arguments
-    clientSocket = Socket(args.host, args.port)
+    client_socket = Socket(args.host, args.port)
     
     # Create a Bot object with the name, and channel specified in cli arguments
     bot = Bot(args.name, args.channel, [])
 
     # Connect the client socket to the IRC server and pass the bot object for communication
-    clientSocket.connectToServer(bot)
+    client_socket.connect_to_server(bot)
 
 if __name__ == "__main__":
     main()
