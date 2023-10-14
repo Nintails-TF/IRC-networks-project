@@ -192,15 +192,22 @@ class ClientConnection:
 
     def handle_timeout(self):
         try:
+            # Get IP of the client
             ip = self.c_sock.getpeername()[0]
             self.server.disconn_times[ip] = time.time()
 
+            # Notify all clients in the channel of the timeout
             for ch_name, channel in self.channels.items():
                 for client in channel.clients:
                     if client != self and client.c_sock.fileno() != -1:
-                        client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
+                        try:
+                            client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
+                        except Exception as e:
+                            logging.error(f"Error notifying client of timeout: {e}")
+
                 channel.remove_client(self)
 
+            # Send timeout message to the client
             self.send_message(f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n")
 
         except socket.error as e:
@@ -208,8 +215,13 @@ class ClientConnection:
         except Exception as e:
             logging.error(f"Unexpected error while handling timeout: {e}")
         finally:
-            self.c_sock.close()
+            try:
+                self.c_sock.close()
+            except Exception as e:
+                logging.error(f"Error closing socket after timeout: {e}")
+            
             self.notify_disconnect()
+
 
     def process_buffered_messages(self):
         while "\r\n" in self.buffer:
