@@ -274,7 +274,7 @@ class ClientCommandProcessing:
     def handle_part(self, message):
         parts = message.split(" ", 1)
         if len(parts) > 1:
-            channel = parts[1].split(" ", 1)[0].strip()  # Modified line
+            channel = parts[1].split(" ", 1)[0].strip() 
             if channel in self.channels:
                 self.channels[channel].remove_client(self)
                 del self.channels[channel]
@@ -408,29 +408,16 @@ class ClientCommandProcessing:
 
     def handle_list(self, message=None):
         print("GOT TO METHOD")
-        # Check if there are any channels
         if not self.server.channels:
             self.send_message(":server 323 :No channels available\r\n")
             return
-
-        # Sending the list of channels
         for ch_name, channel in self.server.channels.items():
-            # For now, we'll just display the channel name. 
-            # In a more detailed implementation, you could also display the topic or number of users, etc.
             self.send_message(f":server 322 {self.nickname} {ch_name} :No topic set\r\n")
-        
-        # Indicate the end of the LIST
         self.send_message(":server 323 :End of /LIST\r\n")
 
     def handle_lusers(self, message=None):
-        # Gather the statistics
         total_users = len(self.server.reg_users)
         total_channels = len(self.server.channels)
-        
-        # For simplicity, we'll not handle operators, servers, etc.
-        # Those can be added later if desired.
-
-        # Send the statistics back to the client
         self.send_message(f":server 251 {self.nickname} :There are {total_users} users on 1 server(s)\r\n")
         self.send_message(f":server 254 {self.nickname} {total_channels} :channels formed\r\n")
         self.send_message(f":server 255 {self.nickname} :I have {total_users} clients and 1 servers\r\n")
