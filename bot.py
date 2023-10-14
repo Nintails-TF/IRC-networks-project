@@ -191,37 +191,44 @@ class Bot:
             self.userlist.remove(username)
         print("This is the updated userlist " + str(self.userlist))
 
-    # Method to provide a fact from a given file
     def give_fact(self, s, text):
-        username = text.split('!')[0].strip(':')
-        message_parts = text.split(' ', 3)  # Split the message into parts
+        print(text)
+        sender = text.split('!')[0].strip(':').lstrip(':')
+        print("sender is -----" + sender + "-----")
+        # Split the message into parts
+        message_parts = text.split(' ', 3)
+        sender = message_parts[0].lstrip(':')
+        print(message_parts)
 
         if len(message_parts) >= 4:
             target = message_parts[2]  # The target recipient
+            print(target)
 
             if target == self.name:
                 # Use a context manager to open and read from the file
                 with open("facts.txt", "r") as factsFile:
                     fact = random.choice(factsFile.readlines())
-                    response = f"PRIVMSG {username} :Want to hear a cool fact? {fact}\r\n"
-                s.send(response.encode())
+                    # Respond to the sender using their username
+                    response = f"PRIVMSG {sender} :Want to hear a cool fact? {fact}\r\n"
+                    s.send(response.encode())
 
     # A function where the bot will greet the user on command
     def greet(self, s, text):
-        username = text.split('!')[0].strip(':')
-        message_parts = text.split(' ')
+        message_parts = text.split('!')[0].strip(':').split(' ')
+        print(message_parts)
+        sender = message_parts[0]
+        print(sender)
 
-        if len(message_parts) >= 4 and message_parts[3] == ":!hello\r\n":
-            # Get the current date and time
-            current_date = time.strftime("%Y-%m-%d")
-            current_time = time.strftime("%H:%M:%S")
+        # Get the current date and time
+        current_date = time.strftime("%Y-%m-%d")
+        current_time = time.strftime("%H:%M:%S")
 
-            # Form the greeting message
-            greeting = f"Greetings {username}, welcome to the server! The date is {current_date}, and the time is {current_time}."
+        # Form the greeting message
+        greeting = f"Greetings {sender}, welcome to the server! The date is {current_date}, and the time is {current_time}."
 
-            # Send the greeting message to the channel
-            response = f"PRIVMSG {self.channel} :{greeting}\r\n"
-            s.send(response.encode())
+        # Send the greeting message to the channel
+        response = f"PRIVMSG {self.channel} :{greeting}\r\n"
+        s.send(response.encode())
 
     # A function where the user can choose to slap another user
     def slap(self, s, text):
