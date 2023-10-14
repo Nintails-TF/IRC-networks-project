@@ -125,8 +125,12 @@ class ClientConnection:
 
         # Gracefully shutting down the client socket
         try:
-            self.c_sock.shutdown(socket.SHUT_RDWR)
+            if self.c_sock.fileno() != -1:  # Check whether the socket is already closed
+                self.c_sock.shutdown(socket.SHUT_RDWR)
+            else:
+                logging.warning("Attempt to shutdown a non-socket or already closed socket.")
         except socket.error:
+            logging.error(f"Socket error during shutdown: {e}")
             pass  # Ignore if the socket is already closed or in a state that doesn't allow shutdown
         self.c_sock.close()
 
@@ -442,7 +446,7 @@ class ClientCommandProcessing:
         self.channels.clear()
         self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
         self.notify_disconnect()
-        raise Exception("Client disconnected")  # Add this line
+        logging.info(f"{self.nickname} has disconnnected")
 
 
 
