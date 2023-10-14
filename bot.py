@@ -4,7 +4,7 @@ import random
 import argparse
 import time
 
-# Initialize the default values for host, port, realname, nickname, and channel
+# Initialize the default values for host, port, name, and channel
 host = "::1"
 port = 6667
 name = "SwagBot"
@@ -50,7 +50,7 @@ class Socket:
                     self.initUserlist(response, swagBot) # generate a userlist
                 # IF THE BOT IS PRIVATE MESSAGED (this may be with a command)
                 elif "PRIVMSG" in response:
-                    swagBot.funnyfact(s, response)
+                    swagBot.givefact(s, response)
                     if "!hello" in response:
                         swagBot.greet(s, response)
                     elif "!slap" in response:
@@ -166,17 +166,17 @@ class Bot:
         print("This is the updated userlist " + str(self.userlist))
         pass
 
-    def providefact(self, s, text):
+    def givefact(self, s, text):
         username = text.split('!')[0].strip(':')
         message_parts = text.split(' ', 3)  # Split the message into parts
 
         if len(message_parts) >= 4:
             target = message_parts[2]  # The target recipient
 
-            if target == self.nickname:
+            if target == self.name:
                 factsFile = open("facts.txt", "r")
                 fact = random.choice(factsFile.readlines())
-                response = f"PRIVMSG {username} :Want to hear an cool fact? {fact}\r\n"
+                response = f"PRIVMSG {username} :Want to hear a cool fact? {fact}\r\n"
                 factsFile.close()
                 s.send(response.encode())
 
@@ -199,25 +199,30 @@ class Bot:
 
     # A function where the user can choose to slap another user
     def slap(self, s, text):
-        command_parts = text.split(" ") # Split the command into parts
+        command_parts = text.split(" ")  # Split the command into parts
         sender = text.split("!")[0].lstrip(":").lower()  # Convert to lowercase for case-insensitive comparison
 
         if len(command_parts) == 5:
-            # User wants to clap a particular user
+            # User wants to slap a particular user
             target_user = command_parts[4].strip("\r\n").lower()  # Convert to lowercase for case-insensitive comparison
 
             if target_user == sender:
                 # Prevent the user from slapping themselves
                 response = f"PRIVMSG {self.channel} :You can't slap yourself!\r\n"
-            elif target_user == self.nickname.lower():
+            elif target_user == self.name.lower():
                 # Prevent the user from slapping the bot
                 response = f"PRIVMSG {self.channel} :You can't slap the bot!\r\n"
+            elif target_user not in [user.lower() for user in self.userlist]:
+                # Check if the target user is not in the channel
+                response = f"PRIVMSG {self.channel} :{target_user} is not in the channel! {sender} slaps themselves with a trout!\r\n"
             else:
                 response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
         else:
             # User wants to slap a random user
-            available_users = [user.lower() for user in self.userlist if user.lower() != self.nickname.lower() and user.lower() != sender]
-            if available_users:
+            available_users = [user.lower() for user in self.userlist if user.lower() != self.name.lower() and user.lower() != sender]
+            if not available_users:
+                response = f"PRIVMSG {self.channel} :No suitable target for a slap! {sender} slaps themselves with a trout!\r\n"
+            else:
                 target_user = random.choice(available_users)
                 response = f"PRIVMSG {self.channel} :{sender} slaps {target_user} around with a large trout!\r\n"
         s.send(response.encode())
@@ -229,10 +234,10 @@ class Bot:
         if len(command_parts) == 5:
             new_name = command_parts[4].strip("\r\n")
 
-            # Update the bot's nickname
-            self.nickname = new_name
+            # Update the bot's name
+            self.name = new_name
 
-            # Re-register the bot with the new nickname
+            # Re-register the bot with the new name
             registration = self.botRegistration()
             s.send(registration)
 
