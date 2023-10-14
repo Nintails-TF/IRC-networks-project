@@ -166,7 +166,7 @@ class Bot:
         print("This is the updated userlist " + str(self.userlist))
         pass
 
-    def funnyfact(self, s, text):
+    def providefact(self, s, text):
         username = text.split('!')[0].strip(':')
         message_parts = text.split(' ', 3)  # Split the message into parts
 
@@ -174,10 +174,10 @@ class Bot:
             target = message_parts[2]  # The target recipient
 
             if target == self.nickname:
-                jokesFile = open("jokes.txt", "r")
-                joke = random.choice(jokesFile.readlines())
-                response = f"PRIVMSG {username} :Want to hear an amazing joke? {joke}\r\n"
-                jokesFile.close()
+                factsFile = open("facts.txt", "r")
+                fact = random.choice(factsFile.readlines())
+                response = f"PRIVMSG {username} :Want to hear an cool fact? {fact}\r\n"
+                factsFile.close()
                 s.send(response.encode())
 
     # A function where the bot will greet the user on command
