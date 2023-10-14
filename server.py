@@ -272,23 +272,26 @@ class ClientCommandProcessing:
         print(f"USER received")
 
     def handle_part(self, message):
-        parts = message.split(" ", 1)
-        if len(parts) > 1:
-            channel = parts[1].split(" ", 1)[0].strip()  # Modified line
-            if channel in self.channels:
-                self.channels[channel].remove_client(self)
-                del self.channels[channel]
-                part_command = f":{self.nickname} PART {channel}\r\n"
-
-                for client in self.server.clients:
-                    client.send_message(part_command)
-
-            else:
-                self.send_message(
-                    f":server 403 {self.nickname} {channel} :No such channel or not a member\r\n"
-                )
-        else:
+        parts = message.split()
+    
+        if len(parts) < 2:
             self.send_message(":server 461 :Not enough parameters\r\n")
+            return
+
+        channel = parts[1].strip()
+
+        if channel not in self.channels:
+            self.send_message(f":server 403 {self.nickname} {channel} :No such channel or not a member\r\n")
+            return
+    
+        self.channels[channel].remove_client(self)
+        del self.channels[channel]
+    
+        part_command = f":{self.nickname} PART {channel}\r\n"
+        for client in self.server.clients:
+            client.send_message(part_command)
+
+
 
     def handle_cap_end(self, message=None):
         pass
@@ -315,17 +318,19 @@ class ClientCommandProcessing:
 
     def join_channel(self, ch_name):
         channel = self.server.get_or_create_channel(ch_name)
+
         if ch_name not in self.channels:
             channel.add_client(self)
             self.channels[ch_name] = channel
+        
             join_message = f":{self.nickname} JOIN :{ch_name}\r\n"
+
             for client in channel.clients:
                 if client != self:
                     client.send_message(join_message)
-
+       
             users_list = " ".join(client.nickname for client in channel.clients)
-            notice_message = f"Users in {ch_name}: {users_list}"
-            channel.send_notice("server", notice_message)
+            channel.send_notice("server", f"Users in {ch_name}: {users_list}")
 
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
@@ -333,72 +338,70 @@ class ClientCommandProcessing:
 
     def handle_quit(self, message):
         parts = message.split(" ", 1)
-        if len(parts) > 1:
-            quit_msg = parts[1]
-        else:
-            quit_msg = f"{self.nickname} has quit"
+        quit_msg = parts[1] if len(parts) > 1 else f"{self.nickname} has quit"
 
-        for ch_name, channel in self.channels.items():
-            for client in self.server.clients:
-                if ch_name in client.channels and client != self:
-                    client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
+        quit_notification = f":{self.nickname} QUIT :{quit_msg}\r\n"
+
+        for client in self.server.clients:
+            for ch_name in client.channels:
+                if ch_name in self.channels and client != self:
+                    client.send_message(quit_notification)
 
         self.channels.clear()
-        self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
+        self.send_message(quit_notification)
         self.c_sock.close()
         self.notify_disconnect()
 
+
+
     def handle_who(self, message=None):
         parts = message.split(" ")
-        if len(parts) > 1:
-            target_channel = parts[1]
-        else:
-            target_channel = None
+        target_ch = parts[1] if len(parts) > 1 else None
 
-        if target_channel is not None and not target_channel.startswith("#"):
+        if target_ch is not None and not target_ch.startswith("#"):
             self.send_message(":server 403 :Invalid channel name\r\n")
             return
 
         clients_in_channel = []
         self.server.c_lock.acquire()
         try:
-            for client in self.server.clients:
-                if target_channel is None or target_channel in client.channels:
-                    clients_in_channel.append(client)
+            clients_in_channel = [client for client in self.server.clients 
+                                  if not target_ch or target_ch in client.channels]
         finally:
             self.server.c_lock.release()
 
         for client in clients_in_channel:
             if client.nickname:
-                info = f":server 352 {self.nickname} {target_channel} {client.nickname} {client.c_sock.getpeername()[0]} :{client.nickname}\r\n"
+                info = f":server 352 {self.nickname} {target_ch} {client.nickname} {client.c_sock.getpeername()[0]} :{client.nickname}\r\n"
                 self.send_message(info)
 
         self.send_message(":server 315 :End of /WHO list.\r\n")
 
     def handle_mode(self, message):
         parts = message.split()
+
         if len(parts) < 2:
             self.send_message(":server 461 MODE :Not enough parameters\r\n")
             return
 
-        target = parts[1]
+        target, *remaining_parts = parts[1:]
+    
         if target == self.nickname:
-            if len(parts) > 2:
-                user_mode = parts[2]
+            user_mode = remaining_parts[0] if remaining_parts else self.get_user_mode()
+            message = None
+       
+            if remaining_parts:
                 self.set_user_mode(user_mode)
-                if (user_mode == "+o") or (user_mode == "-o"):
-                    self.send_message(
-                        f":server 221 {self.nickname} :User mode set to {user_mode}\r\n"
-                    )
+                if user_mode in {"+o", "-o"}:
+                    message = f":server 221 {self.nickname} :User mode set to {user_mode}\r\n"
                 else:
-                    self.send_message(
-                        f":server 501 {self.nickname} :Unknown MODE flag. Usage `/mode <channel/nickname> <+o/-o>`\r\n"
-                    )
+                    message = f":server 501 {self.nickname} :Unknown MODE flag. Usage `/mode <channel/nickname> <+o/-o>`\r\n"
             else:
-                current_user_mode = self.get_user_mode()
-                self.send_message(
-                    f":server 221 {self.nickname} :User mode is {current_user_mode}\r\n"
-                )
+                message = f":server 221 {self.nickname} :User mode is {user_mode}\r\n"
+        
+            self.send_message(message)
+
+
 
     def handle_kick(self, message=None):
         self.send_message(":server 502 :KICK command is not supported\r\n")
