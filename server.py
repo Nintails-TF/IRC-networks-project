@@ -191,6 +191,12 @@ class ClientConnection:
             if self.is_socket_open():
                 self.notify_disconnect()
 
+    def is_socket_open(self):
+        try:
+            return self.c_sock.fileno() != -1
+        except socket.error:
+            return False
+
     def handle_timeout(self):
         try:
             # Get IP of the client
