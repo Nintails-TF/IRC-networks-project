@@ -304,12 +304,9 @@ class ClientCommandProcessing:
                 if client != self:
                     client.send_message(join_message)
 
-            # Send a notice to the channel with the list of connected users
             users_list = " ".join(client.nickname for client in channel.clients)
             notice_message = f"Users in {ch_name}: {users_list}"
-            channel.send_notice(
-                "server", notice_message
-            )  # Assuming "server" as the sender.
+            channel.send_notice("server", notice_message)
 
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
@@ -333,7 +330,6 @@ class ClientCommandProcessing:
         self.notify_disconnect()
 
     def handle_who(self, message=None):
-        # Extract the target channel from the WHO command, if specified.
         parts = message.split(" ")
         if len(parts) > 1:
             target_channel = parts[1]
@@ -341,11 +337,9 @@ class ClientCommandProcessing:
             target_channel = None
 
         if target_channel is not None and not target_channel.startswith("#"):
-            # Invalid channel name format.
             self.send_message(":server 403 :Invalid channel name\r\n")
             return
 
-        # Get the list of clients in the specified channel (or all clients if not specified).
         clients_in_channel = []
         self.server.c_lock.acquire()
         try:
@@ -355,13 +349,11 @@ class ClientCommandProcessing:
         finally:
             self.server.c_lock.release()
 
-        # Send WHO information for each client.
         for client in clients_in_channel:
             if client.nickname:
                 info = f":server 352 {self.nickname} {target_channel} {client.nickname} {client.c_sock.getpeername()[0]} :{client.nickname}\r\n"
                 self.send_message(info)
 
-        # End of WHO list.
         self.send_message(":server 315 :End of /WHO list.\r\n")
 
     def handle_mode(self, message):
@@ -427,17 +419,12 @@ class IRCClient(
         }
 
     def set_user_mode(self, new_mode):
-        # Define the logic for setting user modes here.
-        # This is just a simple example; you should adapt it to your specific needs.
         if new_mode == "+o":
-            # For example, you might set the user as an operator.
             self.user_mode = "o"
         elif new_mode == "-o":
-            # You can also remove user modes.
             self.user_mode = ""
 
     def get_user_mode(self):
-        # Simply return the current user mode.
         return self.user_mode
 
 
