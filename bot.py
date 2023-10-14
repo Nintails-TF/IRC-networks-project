@@ -4,7 +4,7 @@ import random
 import argparse
 import time
 
-# Initialize the default values for host, port, name, and channel
+# Initialize the default values for host, port, name, channel, and userlist
 host = "::1"
 port = 6667
 name = "SwagBot"
@@ -20,6 +20,7 @@ class Socket:
         self.host = host
         self.port = port
 
+    # Method to connect the bot to the server
     def connectToServer(self, bot):
         try:
             with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
@@ -31,8 +32,8 @@ class Socket:
         except socket.error as e:
             print(f"Socket error: {e}")
 
-    # keepalive will keep the bot in the IRC server
-    def keepalive(self, s, swagBot):
+    # Keepalive will keep the bot in the IRC server
+    def keepalive(self, s, bot):
         # This will loop until you CTRL+C - For testing purposes it helps to close the IRC server first then the bot
         while True:
             try:
@@ -42,27 +43,26 @@ class Socket:
                 # Server closed the connection or an error occurred
                     print("Connection to the server has been closed.")
                     break
-                # print(response) # Printing out response for testing
                 if response.startswith("PING"): # If we see PING request
                     self.pong(s, response) # Respond with pong
                 elif "353" in response: # When we see the 353 (userlist) IRC code.
                     response = re.findall("353(.*?)\n" , response) # Using regular expressions, we can search for text between 353 and \n to get userlist
-                    self.initUserlist(response, swagBot) # generate a userlist
+                    self.initUserlist(response, bot) # generate a userlist
                 # IF THE BOT IS PRIVATE MESSAGED (this may be with a command)
                 elif "PRIVMSG" in response:
-                    swagBot.givefact(s, response)
+                    bot.givefact(s, response)
                     if "!hello" in response:
-                        swagBot.greet(s, response)
+                        bot.greet(s, response)
                     elif "!slap" in response:
-                        swagBot.slap(s, response)
+                        bot.slap(s, response)
                     elif "!rename" in response:
-                        swagBot.rename(s, response)
+                        bot.rename(s, response)
                 # IF A USERS CONNECTS
                 elif "JOIN" in response:
-                    swagBot.addUser(response)
+                    bot.addUser(response)
                 # IF A USERS DISCONNECTs
                 elif "QUIT" in response:
-                    swagBot.removeUser(response)
+                    bot.removeUser(response)
             except KeyboardInterrupt:
                 break
             # Handle the various errors that could occur
@@ -89,6 +89,7 @@ class Socket:
         except Exception as e:
             print(f"Error handling PING request: {e}")
 
+    # Method to intialise the userlist
     def initUserlist(self, users, bot):
         try:
             if users and len(users) > 0:
@@ -166,6 +167,7 @@ class Bot:
         print("This is the updated userlist " + str(self.userlist))
         pass
 
+    # Method to provide a fact from a given file
     def givefact(self, s, text):
         username = text.split('!')[0].strip(':')
         message_parts = text.split(' ', 3)  # Split the message into parts
