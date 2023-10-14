@@ -373,7 +373,7 @@ class ClientCommandProcessing:
                     )
                 else:
                     self.send_message(
-                        f":server 501 {self.nickname} :Unknown MODE flag\r\n"
+                        f":server 501 {self.nickname} :Unknown MODE flag. Usage `/mode <channel/nickname> <+o/-o>`\r\n"
                     )
             else:
                 current_user_mode = self.get_user_mode()
