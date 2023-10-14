@@ -10,6 +10,7 @@ port = 6667
 name = "SwagBot"
 channel = "#test"
 userlist = []
+reconnection_attempts = 0
 
 """
 The socket class is responsible for handling the network connections between the Bot (client) and
@@ -20,17 +21,26 @@ class Socket:
         self.host = host
         self.port = port
 
-    # Method to connect the bot to the server
+    # Method to connect the bot to the server with reconnection logic
     def connect_to_server(self, bot):
-        try:
-            with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-                s.connect((self.host, self.port))
-                s.send(bot.bot_registration())
-                s.send(bot.bot_join_channel())
-                self.keep_alive(s, bot)
+        while True:
+            try:
+                with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+                    s.connect((self.host, self.port))
+                    s.send(bot.bot_registration())
+                    s.send(bot.bot_join_channel())
+                    self.keep_alive(s, bot)
                 # Handle socket-related errors (e.g., server down, host/port issues)
-        except socket.error as e:
-            print(f"Socket error: {e}")
+            except socket.error as e:
+                print(f"Socket error: {e}")
+                # Implement exponential backoff with a maximum delay of 300 seconds
+                delay = min(2 ** bot.reconnection_attempts, 300)
+                print(f"Reconnecting in {delay} seconds...")
+                time.sleep(delay)
+                bot.reconnection_attempts += 1
+            except KeyboardInterrupt:
+                print("Bot execution interrupted.")
+                break  # Exit the loop when a keyboard interrupt is detected
 
     # keep_alive will keep the bot in the IRC server
     def keep_alive(self, s, bot):
@@ -148,6 +158,7 @@ class Bot:
         self.name = name
         self.channel = channel
         self.userlist = userlist
+        self.reconnection_attempts = reconnection_attempts
 
     # add_user will add a new user to the bots userlist
     def add_user(self, text):
