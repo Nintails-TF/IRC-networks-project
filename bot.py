@@ -191,7 +191,6 @@ class Bot:
             self.userlist.remove(username)
         print("This is the updated userlist " + str(self.userlist))
 
-
     # Method to provide a fact from a given file
     def give_fact(self, s, text):
         username = text.split('!')[0].strip(':')
