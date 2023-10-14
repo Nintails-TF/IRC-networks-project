@@ -417,20 +417,28 @@ class ClientCommandProcessing:
 
     def join_channel(self, ch_name):
         channel = self.server.get_or_create_channel(ch_name)
-
         if ch_name not in self.channels:
+            # Add the current client to the channel if not already in it
             channel.add_client(self)
             self.channels[ch_name] = channel
         
             join_message = f":{self.nickname} JOIN :{ch_name}\r\n"
-
+            
+            # Send JOIN message to all clients in the channel
             for client in channel.clients:
                 if client != self:
                     client.send_message(join_message)
-       
-            users_list = " ".join(client.nickname for client in channel.clients)
-            channel.send_notice("server", f"Users in {ch_name}: {users_list}")
 
+            # Create a list of unique user nicknames in the channel
+            user_nicknames = set(client.nickname for client in channel.clients)
+            
+            # Create a message listing users in the channel
+            users_list = " ".join(user_nicknames)
+            notice_message = f"Users in {ch_name}: {users_list}"
+            
+            # Send the notice message to the server and the channel
+            channel.send_notice("server", notice_message)
+            
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
         self.send_message(f"PONG :{ping_data}\r\n")
