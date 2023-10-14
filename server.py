@@ -257,6 +257,23 @@ class ClientCommandProcessing:
             self.register_client()
         print(f"USER received")
 
+    def handle_part(self, message):
+        parts = message.split(" ", 1)
+        if len(parts) > 1:
+            channel = parts[1].split(" ", 1)[0].strip()  # Modified line
+            if channel in self.channels:
+                self.channels[channel].remove_client(self)
+                del self.channels[channel]
+                part_command = f":{self.nickname} PART {channel}\r\n"
+                
+                for client in self.server.clients:
+                    client.send_message(part_command)
+                    
+            else:
+                self.send_message(f":server 403 {self.nickname} {channel} :No such channel or not a member\r\n")
+        else:
+            self.send_message(":server 461 :Not enough parameters\r\n")
+
     def handle_cap_end(self, message=None):
         pass
 
@@ -349,7 +366,8 @@ class IRCClient(ClientConnection, ClientRegistration, ClientMessaging, ClientCom
             "WHO": self.handle_who,
             "MODE": self.handle_mode,
             "KICK": self.handle_kick,
-            "MOTD": self.handle_motd
+            "MOTD": self.handle_motd,
+            "PART": self.handle_part
         }
 
 
