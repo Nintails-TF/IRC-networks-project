@@ -227,7 +227,7 @@ class Bot:
         # Form the greeting message
         greeting = f"Greetings {sender}, welcome to the server! The date is {current_date}, and the time is {current_time}."
 
-        # Send the greeting message to the channel
+            # Send the greeting message to the channel
         response = f"PRIVMSG {self.channel} :{greeting}\r\n"
         s.send(response.encode())
 
