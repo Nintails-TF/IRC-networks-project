@@ -50,8 +50,7 @@ A basic implementation of an Internet Relay Chat (IRC) server and a bot using Py
 ### Command Line Parameters
 * --host (Default ::1 [localhost]): Defines the ipv6 of the IRC server.
 * --port (Default 6667): Defines the IRC server port.
-* --nickanme (Default SwagBot): Defines the nickname of the bot.
-* --realname (Default Swag): Defines the realname of the bot.
+* --name (Default SwagBot): Defines the name of the bot.
 * --channel (Default #text): Defines what channel the bot will join.
 
 
