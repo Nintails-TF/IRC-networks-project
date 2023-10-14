@@ -29,6 +29,11 @@ class IRCServer:
         self.s_sock.listen(5)
         print(f"Listening on {self.HOST} : {self.PORT}")
 
+    def get_or_create_channel(self, ch_name):
+        if ch_name not in self.channels:
+            self.channels[ch_name] = Channel(ch_name)
+        return self.channels[ch_name]
+
     def cleanup_disconnects(self):
         while True:
             time.sleep(30)
