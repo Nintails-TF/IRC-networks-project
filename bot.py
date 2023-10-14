@@ -7,8 +7,7 @@ import time
 # Initialize the default values for host, port, realname, nickname, and channel
 host = "::1"
 port = 6667
-realname = "Swag"
-nickname = "SwagBot"
+name = "SwagBot"
 channel = "#test"
 userlist = []
 
@@ -22,12 +21,15 @@ class Socket:
         self.port = port
 
     def connectToServer(self, bot):
-        # Defining a socket, with Ipv6 using TCP socket
-        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
-            s.connect((self.host, self.port))
-            s.send(bot.botRegistration())
-            s.send(bot.botJoinChannel())
-            self.keepalive(s, bot)
+        try:
+            with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+                s.connect((self.host, self.port))
+                s.send(bot.botRegistration())
+                s.send(bot.botJoinChannel())
+                self.keepalive(s, bot)
+                # Handle socket-related errors (e.g., server down, host/port issues)
+        except socket.error as e:
+            print(f"Socket error: {e}")
 
     # keepalive will keep the bot in the IRC server
     def keepalive(self, s, swagBot):
@@ -36,6 +38,10 @@ class Socket:
             try:
                 # The response is the text that the bot gets from the server, we now need to parse it to perform actions
                 response = s.recv(2048).decode()
+                if not response:
+                # Server closed the connection or an error occurred
+                    print("Connection to the server has been closed.")
+                    break
                 # print(response) # Printing out response for testing
                 if response.startswith("PING"): # If we see PING request
                     self.pong(s, response) # Respond with pong
@@ -59,23 +65,47 @@ class Socket:
                     swagBot.removeUser(response)
             except KeyboardInterrupt:
                 break
+            # Handle the various errors that could occur
+            except (socket.error, ConnectionResetError) as e:
+                print(f"Socket error: {e}")
+                break
+            except MemoryError as e:
+                print(f"Memory error: {e}")
+                break
+            except Exception as e:
+                print(f"Error: {e}")
+                break
 
     # pong will handle ping requests with a corresponding pong
     def pong(self, s, text):
-        # Extract the PING message
-        ping_message = text.split(" ")[1]
-        # Send a PONG response back to the server
-        response = "PONG " + ping_message + "\r\n"
-        s.send(response.encode())
+        try:
+            # Extract the PING message
+            ping_message = text.split(" ")[1]
+            # Send a PONG response back to the server
+            response = "PONG " + ping_message + "\r\n"
+            s.send(response.encode())
+        except IndexError:
+            print("Invalid PING message received, unable to send PONG response.")
+        except Exception as e:
+            print(f"Error handling PING request: {e}")
 
-    # userlist will grab the initial userlist and store it
     def initUserlist(self, users, bot):
-        userlist = users[0].replace("\r", "") # turning array into string and removing \r
-        # Split the userlist at the : and " "
-        userlist = userlist.split(":")
-        userlist = userlist[1].split(" ")
-        # print(userlist) Testing userlist
-        bot.userlist = userlist
+        try:
+            if users and len(users) > 0:
+                userlist = users[0].replace("\r", "")  # Remove any carriage return characters
+
+                # Split the userlist at the ":" and " "
+                userlist = userlist.split(":")
+                if len(userlist) > 1:
+                    userlist = userlist[1].split(" ")
+                    # Update the bot's userlist
+                    bot.userlist = userlist
+                else:
+                    print("Invalid userlist format: Missing expected delimiter.")
+        except IndexError:
+            print("Error initializing userlist: Invalid input structure.")
+        except Exception as e:
+            print(f"Error initializing userlist: {e}")
 
     def getHost(self):
         return self.host
@@ -105,8 +135,7 @@ class Menu:
         # Add command line arguments with default values and descriptions
         self.parser.add_argument("--host", default=host, help="IRC server host (IPv6)")
         self.parser.add_argument("--port", type=int, default=port, help="IRC server port")
-        self.parser.add_argument("--nickname", default=nickname, help="Bot nickname")
-        self.parser.add_argument("--realname", default=realname, help="Bot real name")
+        self.parser.add_argument("--name", default=name, help="Bot name (nickname and username)")
         self.parser.add_argument("--channel", default=channel, help="Channel to join")
 
     def get_args(self):
@@ -114,11 +143,10 @@ class Menu:
         return self.parser.parse_args()
 
 class Bot:
-    def __init__(self, nickname, realname, userlist, channel):
-        self.nickname = nickname
-        self.realname = realname
-        self.userlist = userlist
+    def __init__(self, name, channel, userlist):
+        self.name = name
         self.channel = channel
+        self.userlist = userlist
 
     # addUser will add a new user to the bots userlist
     def addUser(self, text):
@@ -217,7 +245,7 @@ class Bot:
 
     # @return a formatted NICK and USER command
     def botRegistration(self):
-        user = "NICK " + self.nickname +  "\r\nUSER " + self.nickname + " 0 * " + ":" + self.realname +"\r\n"
+        user = "NICK " + self.name +  "\r\nUSER " + self.name + " 0 * " + ":" + self.name + "\r\n"
         return user.encode() 
 
     # @return a formatted join statement to join the test channel
@@ -234,8 +262,8 @@ def main():
     # Create a Socket object with the port and host specified in cli arguments
     clientSocket = Socket(args.host, args.port)
     
-    # Create a Bot object with the nickname, real name, and channel specified in cli arguments
-    bot = Bot(args.nickname, args.realname, [], args.channel)
+    # Create a Bot object with the name, and channel specified in cli arguments
+    bot = Bot(args.name, args.channel, [])
 
     # Connect the client socket to the IRC server and pass the bot object for communication
     clientSocket.connectToServer(bot)
