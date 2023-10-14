@@ -101,24 +101,20 @@ class Socket:
         except Exception as e:
             print(f"Error handling PING request: {e}")
 
-    # Method to intialise the userlist
     def init_user_list(self, users, bot):
         try:
             if users and len(users) > 0:
                 userlist = users[0].replace("\r", "")  # Remove any carriage return characters
-
-                # Split the userlist at the ":" and " "
-                userlist = userlist.split(":")
-                if len(userlist) > 1:
-                    userlist = userlist[1].split(" ")
-                    # Update the bot's userlist
-                    bot.userlist = userlist
-                else:
-                    print("Invalid userlist format: Missing expected delimiter.")
+                print(f"Raw userlist: {userlist}")
+                usernames = re.findall(r':(.*?)![~@]', userlist)
+                print(f"Extracted usernames: {usernames}")
+                bot.userlist = usernames
         except IndexError:
             print("Error initializing userlist: Invalid input structure.")
         except Exception as e:
             print(f"Error initializing userlist: {e}")
+
+
 
     def get_host(self):
         return self.host
@@ -162,23 +158,39 @@ class Bot:
         self.userlist = userlist
         self.reconnection_attempts = reconnection_attempts
 
-    # add_user will add a new user to the bots userlist
+    # add_user will add a new user to the bot's userlist
     def add_user(self, text):
+        print("text is -----" + text + "-----")
         print("This is the current userlist " + str(self.userlist))
-        # EXTRACT THE USERNAME FROM TEXT
-        username = (text.split("!")[0]).strip(":")
-        self.userlist.append(username)
-        print("This is the updated userlist " + str(self.userlist))
-        pass
+        
+        # Split the message by spaces and extract the username (the second part)
+        parts = text.split()
+        print(parts)
+        if len(parts) > 1:  
+            username = parts[0].lstrip(':')
+            print("username is -----" + username + "-----")
+            
+            if "001" in parts:
+                # This is a special message for the bot joining, extract the bot's username
+                bot_username = parts[2]
+                if bot_username not in self.userlist:
+                    self.userlist.append(bot_username)
+            else:
+                if username not in self.userlist:
+                    self.userlist.append(username)
 
-    # remove_user will remove a user from the bots userlist
+            print("This is the updated userlist " + str(self.userlist))
+
+    # remove_user will remove a user from the bot's userlist
     def remove_user(self, text):
         print("This is the current userlist " + str(self.userlist))
-        # EXTRACT THE USERNAME FROM TEXT
-        username = (text.split("!")[0]).strip(":")
-        self.userlist.remove(username)
+        # Split the message by spaces and extract the username (the second part)
+        parts = text.split()
+        if len(parts) > 1:
+            username = parts[0].lstrip(':')
+            print("username is -----" + username + "-----")
+            self.userlist.remove(username)
         print("This is the updated userlist " + str(self.userlist))
-        pass
 
     # Method to provide a fact from a given file
     def give_fact(self, s, text):
@@ -216,13 +228,16 @@ class Bot:
 
     # A function where the user can choose to slap another user
     def slap(self, s, text):
-        command_parts = text.split(" ")  # Split the command into parts
-        sender = text.split("!")[0].lstrip(":").lower()  # Convert to lowercase for case-insensitive comparison
+        print(text)
+        command_parts = text.lstrip(":").lower().split(" ")  # Convert to lowercase for case-insensitive comparison
+        print(command_parts)
+        sender = command_parts[0]
+        print(sender)
 
         if len(command_parts) == 5:
             # User wants to slap a particular user
             target_user = command_parts[4].strip("\r\n").lower()  # Convert to lowercase for case-insensitive comparison
-
+            print(target_user)
             if target_user == sender:
                 # Prevent the user from slapping themselves
                 response = f"PRIVMSG {self.channel} :You can't slap yourself!\r\n"

@@ -29,6 +29,11 @@ class IRCServer:
         self.s_sock.listen(5)
         print(f"Listening on {self.HOST} : {self.PORT}")
 
+    def get_or_create_channel(self, ch_name):
+        if ch_name not in self.channels:
+            self.channels[ch_name] = Channel(ch_name)
+        return self.channels[ch_name]
+
     def cleanup_disconnects(self):
         while True:
             time.sleep(30)
@@ -73,30 +78,30 @@ class IRCServer:
         cleanup_thread = threading.Thread(target=self.cleanup_disconnects)
         cleanup_thread.daemon = True
         cleanup_thread.start()
-        try:
-            self.bind_and_listen()
-            while True:
-                c_sock = self.accept_connection()
-                if c_sock:
-                    threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
-                else:
-                    logging.warning("Socket was none.")
-        except (socket.timeout, ConnectionRefusedError) as e:
-            logging.error(f"Connection error: {e}")
-        except socket.error as se:
-            logging.error(f"Socket error: {se}")
-        except ValueError as ve:
-            logging.error(f"Value error: {ve}")
-        except Exception as e:
-            logging.error(f"Unexpected error: {e}")
-        finally:
-            self.s_sock.close()
-            logging.info("Socket has been closed.")
-
-    def get_or_create_channel(self, ch_name):
-        if ch_name not in self.channels:
-            self.channels[ch_name] = Channel(ch_name)
-        return self.channels[ch_name]
+        while True:
+            try:
+                self.bind_and_listen()
+                while True:
+                    c_sock = self.accept_connection()
+                    if c_sock:
+                        threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
+                    else:
+                        logging.warning("Socket was none.")
+            except (socket.timeout, ConnectionRefusedError) as e:
+                logging.error(f"Connection error: {e}")
+                continue
+            except socket.error as se:
+                logging.error(f"Socket error: {se}")
+                break
+            except ValueError as ve:
+                logging.error(f"Value error: {ve}")
+                break
+            except Exception as e:
+                logging.error(f"Unexpected error: {e}")
+                break
+            finally:
+                self.s_sock.close()
+                logging.info("Socket has been closed.")
 
 class ClientConnection:
     def send_message(self, message):
@@ -123,15 +128,14 @@ class ClientConnection:
         finally:
             self.server.c_lock.release()
 
-        # Gracefully shutting down the client socket
         try:
-            if self.c_sock.fileno() != -1:  # Check whether the socket is already closed
+            if self.c_sock.fileno() != -1:
                 self.c_sock.shutdown(socket.SHUT_RDWR)
             else:
                 logging.warning("Attempt to shutdown a non-socket or already closed socket.")
         except socket.error as e:
             logging.error(f"Socket error during shutdown: {e}")
-            pass  # Ignore if the socket is already closed or in a state that doesn't allow shutdown
+            pass
         self.c_sock.close()
 
 
@@ -315,7 +319,7 @@ class ClientCommandProcessing:
     def process_message(self, message):
         handled = False
         for cmd, handler in self.commands.items():
-            if message.startswith(cmd):
+            if message.upper().startswith(cmd):
                 handler(message)
                 handled = True
                 break
@@ -413,20 +417,28 @@ class ClientCommandProcessing:
 
     def join_channel(self, ch_name):
         channel = self.server.get_or_create_channel(ch_name)
-
         if ch_name not in self.channels:
+            # Add the current client to the channel if not already in it
             channel.add_client(self)
             self.channels[ch_name] = channel
         
             join_message = f":{self.nickname} JOIN :{ch_name}\r\n"
-
+            
+            # Send JOIN message to all clients in the channel
             for client in channel.clients:
                 if client != self:
                     client.send_message(join_message)
-       
-            users_list = " ".join(client.nickname for client in channel.clients)
-            channel.send_notice("server", f"Users in {ch_name}: {users_list}")
 
+            # Create a list of unique user nicknames in the channel
+            user_nicknames = set(client.nickname for client in channel.clients)
+            
+            # Create a message listing users in the channel
+            users_list = " ".join(user_nicknames)
+            notice_message = f"Users in {ch_name}: {users_list}"
+            
+            # Send the notice message to the server and the channel
+            channel.send_notice("server", notice_message)
+            
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
         self.send_message(f"PONG :{ping_data}\r\n")
