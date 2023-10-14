@@ -279,12 +279,14 @@ class ClientCommandProcessing:
                 self.channels[channel].remove_client(self)
                 del self.channels[channel]
                 part_command = f":{self.nickname} PART {channel}\r\n"
-                
+
                 for client in self.server.clients:
                     client.send_message(part_command)
-                    
+
             else:
-                self.send_message(f":server 403 {self.nickname} {channel} :No such channel or not a member\r\n")
+                self.send_message(
+                    f":server 403 {self.nickname} {channel} :No such channel or not a member\r\n"
+                )
         else:
             self.send_message(":server 461 :Not enough parameters\r\n")
 
@@ -390,7 +392,7 @@ class ClientCommandProcessing:
                     )
                 else:
                     self.send_message(
-                        f":server 501 {self.nickname} :Unknown MODE flag\r\n"
+                        f":server 501 {self.nickname} :Unknown MODE flag. Usage `/mode <channel/nickname> <+o/-o>`\r\n"
                     )
             else:
                 current_user_mode = self.get_user_mode()
@@ -433,7 +435,7 @@ class IRCClient(
             "MODE": self.handle_mode,
             "KICK": self.handle_kick,
             "MOTD": self.handle_motd,
-            "PART": self.handle_part
+            "PART": self.handle_part,
         }
 
     def set_user_mode(self, new_mode):
