@@ -2,9 +2,13 @@ from logging import shutdown
 import socket
 import threading
 import time
+
 NICKNAME_MAX_LENGTH = 15
-ALLOWED_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}")
+ALLOWED_CHARACTERS = set(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}"
+)
 STARTING_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
 
 class IRCServer:
     HOST = "::"
@@ -16,7 +20,7 @@ class IRCServer:
         self.channels = {}
         self.c_lock = threading.Lock()
         self.reg_users = []
-        self.disconn_times = {}  
+        self.disconn_times = {}
 
     def bind_and_listen(self):
         self.s_sock.bind((self.HOST, self.PORT))
@@ -25,9 +29,13 @@ class IRCServer:
 
     def cleanup_disconnects(self):
         while True:
-            time.sleep(30)  
+            time.sleep(30)
             curr_time = time.time()
-            ips_to_remove = [ip for ip, disconn_time in self.disconn_times.items() if curr_time - disconn_time > 600]  
+            ips_to_remove = [
+                ip
+                for ip, disconn_time in self.disconn_times.items()
+                if curr_time - disconn_time > 600
+            ]
             for ip in ips_to_remove:
                 del self.disconn_times[ip]
 
@@ -52,7 +60,7 @@ class IRCServer:
 
     def shutdown(self):
         self.broadcast_message(":server NOTICE :Server is shutting down\r\n")
-        time.sleep(5)        
+        time.sleep(5)
         for client in self.clients:
             client.c_sock.close()
         self.s_sock.close()
@@ -62,9 +70,11 @@ class IRCServer:
         try:
             self.bind_and_listen()
             while True:
-                c_sock  = self.accept_connection()
+                c_sock = self.accept_connection()
                 if c_sock:
-                    threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
+                    threading.Thread(
+                        target=self.handle_ind_client, args=(c_sock,)
+                    ).start()
                 else:
                     print(f"Socket was none")
         except socket.error as se:
@@ -116,12 +126,14 @@ class ClientConnection:
                 self.process_buffered_messages()
 
         except socket.timeout:
-            print(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} timed out.")
-            self.notify_disconnect()  
+            print(
+                f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} timed out."
+            )
+            self.notify_disconnect()
             self.c_sock.close()
         except socket.error as se:
             print(f"Socket error in client: {se}")
-        
+
         except ValueError as ve:
             print(f"Value error: {ve}")
 
@@ -134,11 +146,13 @@ class ClientConnection:
         ip = self.c_sock.getpeername()[0]
         self.server.disconn_times[ip] = time.time()
         for ch_name, channel in self.channels.items():
-            for client in channel.clients: 
+            for client in channel.clients:
                 if client != self:
                     client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
             channel.remove_client(self)
-        self.send_message(f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n")
+        self.send_message(
+            f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n"
+        )
         self.c_sock.close()
         self.notify_disconnect()
 
@@ -163,9 +177,11 @@ class ClientRegistration:
             )
 
     def is_valid_nickname(self, nickname):
-        if (nickname[0] not in STARTING_CHARACTERS) or \
-           (len(nickname) > NICKNAME_MAX_LENGTH) or \
-           (not all(c in ALLOWED_CHARACTERS for c in nickname[1:])):
+        if (
+            (nickname[0] not in STARTING_CHARACTERS)
+            or (len(nickname) > NICKNAME_MAX_LENGTH)
+            or (not all(c in ALLOWED_CHARACTERS for c in nickname[1:]))
+        ):
             return False
         return True
 
@@ -201,7 +217,7 @@ class ClientMessaging:
             self.send_message(
                 f":server 401 {self.nickname} {target} :No such nickname\r\n"
             )
-    
+
     def _find_client_by_nickname(self, nickname):
         target_client = None
         self.server.c_lock.acquire()
@@ -212,7 +228,7 @@ class ClientMessaging:
                     break
         finally:
             self.server.c_lock.release()
-        return target_client        
+        return target_client
 
 
 class ClientCommandProcessing:
@@ -241,21 +257,38 @@ class ClientCommandProcessing:
         if old_nickname:
             notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
 
-            self.server.c_lock.acquire()  
+            self.server.c_lock.acquire()
             try:
                 for client in self.server.clients:
                     client.send_message(notification_msg)
             finally:
                 self.server.c_lock.release()
         print(f"Nickname set to {self.nickname}")
-    
-    
 
     def handle_user(self, message=None):
         self.user_received = True
         if self.nickname and not self.is_registered:
             self.register_client()
         print(f"USER received")
+
+    def handle_part(self, message):
+        parts = message.split(" ", 1)
+        if len(parts) > 1:
+            channel = parts[1].split(" ", 1)[0].strip()  # Modified line
+            if channel in self.channels:
+                self.channels[channel].remove_client(self)
+                del self.channels[channel]
+                part_command = f":{self.nickname} PART {channel}\r\n"
+
+                for client in self.server.clients:
+                    client.send_message(part_command)
+
+            else:
+                self.send_message(
+                    f":server 403 {self.nickname} {channel} :No such channel or not a member\r\n"
+                )
+        else:
+            self.send_message(":server 461 :Not enough parameters\r\n")
 
     def handle_cap_end(self, message=None):
         pass
@@ -265,10 +298,10 @@ class ClientCommandProcessing:
         self.send_message(error_msg)
 
     def broadcast_to_all_clients(self, message, old_nickname):
-        self.server.c_lock.acquire()  
+        self.server.c_lock.acquire()
         try:
             for client in self.server.clients:
-                if client.nickname != old_nickname:  
+                if client.nickname != old_nickname:
                     client.send_message(message)
         finally:
             self.server.c_lock.release()
@@ -287,13 +320,17 @@ class ClientCommandProcessing:
             self.channels[ch_name] = channel
             join_message = f":{self.nickname} JOIN :{ch_name}\r\n"
             for client in channel.clients:
-                if client != self:  
+                if client != self:
                     client.send_message(join_message)
+
+            users_list = " ".join(client.nickname for client in channel.clients)
+            notice_message = f"Users in {ch_name}: {users_list}"
+            channel.send_notice("server", notice_message)
 
     def handle_ping(self, message):
         ping_data = message.split(" ")[1]
         self.send_message(f"PONG :{ping_data}\r\n")
-        
+
     def handle_quit(self, message):
         parts = message.split(" ", 1)
         if len(parts) > 1:
@@ -306,37 +343,85 @@ class ClientCommandProcessing:
                 if ch_name in client.channels and client != self:
                     client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
 
-        self.channels.clear()  
+        self.channels.clear()
         self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
         self.c_sock.close()
         self.notify_disconnect()
-            
+
     def handle_who(self, message=None):
-        self.send_message(":server 502 :WHO command is not supported\r\n")
+        parts = message.split(" ")
+        if len(parts) > 1:
+            target_channel = parts[1]
+        else:
+            target_channel = None
+
+        if target_channel is not None and not target_channel.startswith("#"):
+            self.send_message(":server 403 :Invalid channel name\r\n")
+            return
+
+        clients_in_channel = []
+        self.server.c_lock.acquire()
+        try:
+            for client in self.server.clients:
+                if target_channel is None or target_channel in client.channels:
+                    clients_in_channel.append(client)
+        finally:
+            self.server.c_lock.release()
+
+        for client in clients_in_channel:
+            if client.nickname:
+                info = f":server 352 {self.nickname} {target_channel} {client.nickname} {client.c_sock.getpeername()[0]} :{client.nickname}\r\n"
+                self.send_message(info)
+
+        self.send_message(":server 315 :End of /WHO list.\r\n")
 
     def handle_mode(self, message):
-        self.send_message(":server 502 :MODE command is not supported\r\n")
-    
+        parts = message.split()
+        if len(parts) < 2:
+            self.send_message(":server 461 MODE :Not enough parameters\r\n")
+            return
+
+        target = parts[1]
+        if target == self.nickname:
+            if len(parts) > 2:
+                user_mode = parts[2]
+                self.set_user_mode(user_mode)
+                if (user_mode == "+o") or (user_mode == "-o"):
+                    self.send_message(
+                        f":server 221 {self.nickname} :User mode set to {user_mode}\r\n"
+                    )
+                else:
+                    self.send_message(
+                        f":server 501 {self.nickname} :Unknown MODE flag. Usage `/mode <channel/nickname> <+o/-o>`\r\n"
+                    )
+            else:
+                current_user_mode = self.get_user_mode()
+                self.send_message(
+                    f":server 221 {self.nickname} :User mode is {current_user_mode}\r\n"
+                )
 
     def handle_kick(self, message=None):
         self.send_message(":server 502 :KICK command is not supported\r\n")
-    
 
     def handle_motd(self, message=None):
         self.send_message(":server 502 :MOTD command is not supported\r\n")
 
 
-class IRCClient(ClientConnection, ClientRegistration, ClientMessaging, ClientCommandProcessing):
+class IRCClient(
+    ClientConnection, ClientRegistration, ClientMessaging, ClientCommandProcessing
+):
     TIMEOUT = 100
+
     def __init__(self, c_sock, server):
         self.c_sock = c_sock
         self.server = server
         self.nickname = None
+        self.user_mode = ""
         self.channels = {}
         self.user_received = False
         self.buffer = ""
         self.is_registered = False
-        
+
         self.commands = {
             "CAP LS": self.handle_cap_ls,
             "NICK": self.handle_nick,
@@ -349,8 +434,18 @@ class IRCClient(ClientConnection, ClientRegistration, ClientMessaging, ClientCom
             "WHO": self.handle_who,
             "MODE": self.handle_mode,
             "KICK": self.handle_kick,
-            "MOTD": self.handle_motd
+            "MOTD": self.handle_motd,
+            "PART": self.handle_part,
         }
+
+    def set_user_mode(self, new_mode):
+        if new_mode == "+o":
+            self.user_mode = "o"
+        elif new_mode == "-o":
+            self.user_mode = ""
+
+    def get_user_mode(self):
+        return self.user_mode
 
 
 class Channel:
@@ -374,6 +469,11 @@ class Channel:
                 client.send_message(
                     f":{origin_client.nickname} PRIVMSG {self.name} :{message}\r\n"
                 )
+
+    def send_notice(self, sender, message):
+        notice = f":{sender} NOTICE {self.name} :{message}\r\n"
+        for client in self.clients:
+            client.send_message(notice)
 
 
 if __name__ == "__main__":

@@ -43,6 +43,19 @@ A basic implementation of an Internet Relay Chat (IRC) server and a bot using Py
    python bot.py
    ```
 
+5. (Optional) Define CLI parameters e.g.
+   ```
+   python bot.py --host fc00:1337::17 # Points to the QMB VM running server/miniircd.
+   ```
+### Command Line Parameters
+* --host (Default ::1 [localhost]): Defines the ipv6 of the IRC server.
+* --port (Default 6667): Defines the IRC server port.
+* --nickanme (Default SwagBot): Defines the nickname of the bot.
+* --realname (Default Swag): Defines the realname of the bot.
+* --channel (Default #text): Defines what channel the bot will join.
+
+
+
 ## Client Connection
 
 
