@@ -2,6 +2,8 @@ from logging import shutdown
 import socket
 import threading
 import time
+import logging
+logging.basicConfig(level=logging.INFO)
 
 NICKNAME_MAX_LENGTH = 15
 ALLOWED_CHARACTERS = set(
@@ -72,19 +74,20 @@ class IRCServer:
             while True:
                 c_sock = self.accept_connection()
                 if c_sock:
-                    threading.Thread(
-                        target=self.handle_ind_client, args=(c_sock,)
-                    ).start()
+                    threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
                 else:
-                    print(f"Socket was none")
+                    logging.warning("Socket was none.")
+        except (socket.timeout, ConnectionRefusedError) as e:
+            logging.error(f"Connection error: {e}")
         except socket.error as se:
-            print(f"Socket error in client: {se}")
+            logging.error(f"Socket error: {se}")
         except ValueError as ve:
-            print(f"Value error: {ve}")
+            logging.error(f"Value error: {ve}")
         except Exception as e:
-            print(f"Error in client: {e}")
+            logging.error(f"Unexpected error: {e}")
         finally:
             self.s_sock.close()
+            logging.info("Socket has been closed.")
 
     def get_or_create_channel(self, ch_name):
         if ch_name not in self.channels:
@@ -94,11 +97,17 @@ class IRCServer:
 
 class ClientConnection:
     def send_message(self, message):
+        if not message:
+            logging.warning("Attempted to send an empty message.")
+            return        
+
         try:
-            print(f"Sending:\n{message}")
+            logging.info(f"\nSending:\n{message}")
             self.c_sock.send(message.encode("utf-8"))
+        except (socket.error, BrokenPipeError) as e:
+            logging.error(f"An error occurred while sending the message: {e}")
         except Exception as e:
-            print(f"An error occurred while sending message: {e}")
+            logging.error(f"Unexpected error: {e}")
 
     def notify_disconnect(self):
         if self.nickname and self.nickname in self.server.reg_users:
@@ -113,53 +122,75 @@ class ClientConnection:
     def handle_client(self):
         try:
             while True:
-                self.c_sock.settimeout(IRCClient.TIMEOUT)
+                try:
+                    if self.c_sock.fileno() == -1:
+                        logging.error("Socket is already closed.")
+                        return
+
+                    self.c_sock.settimeout(IRCClient.TIMEOUT)
+                except socket.error as e:
+                    logging.error(f"Socket error (setting timeout): {e}")
+                    return  
+                except Exception as e:
+                    logging.error(f"Unexpected error in client (setting timeout): {e}")
+                    return           
+
                 data = self.c_sock.recv(4096)
                 if not data:
                     break
-                self.buffer += data.decode("utf-8")
+                
+                try:
+                    self.buffer += data.decode("utf-8")
+                    
+                except UnicodeDecodeError as ue:
+                    logging.error(f"Unicode decode error: {ue}")
+                    continue                    
+
                 while "\r\n" in self.buffer:
                     message, self.buffer = self.buffer.split("\r\n", 1)
                     message = message.strip()
-                    print(f"Received: {repr(message)}")
+                    logging.info(f"Received: {repr(message)}")
                     self.process_message(message)
                 self.process_buffered_messages()
 
         except socket.timeout:
-            print(
+            logging.warning(
                 f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} timed out."
             )
-            self.notify_disconnect()
-            self.c_sock.close()
         except socket.error as se:
-            print(f"Socket error in client: {se}")
-
+            logging.error(f"Socket error in client: {se}")
         except ValueError as ve:
-            print(f"Value error: {ve}")
-
+            logging.error(f"Value error: {ve}")
         except Exception as e:
-            print(f"Error in client: {e}")
+            logging.error(f"Unexpected error in client: {e}")
         finally:
             self.notify_disconnect()
 
     def handle_timeout(self):
-        ip = self.c_sock.getpeername()[0]
-        self.server.disconn_times[ip] = time.time()
-        for ch_name, channel in self.channels.items():
-            for client in channel.clients:
-                if client != self:
-                    client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
-            channel.remove_client(self)
-        self.send_message(
-            f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n"
-        )
-        self.c_sock.close()
-        self.notify_disconnect()
+        try:
+            ip = self.c_sock.getpeername()[0]
+            self.server.disconn_times[ip] = time.time()
+
+            for ch_name, channel in self.channels.items():
+                for client in channel.clients:
+                    if client != self and client.c_sock.fileno() != -1:
+                        client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
+                channel.remove_client(self)
+
+            self.send_message(f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n")
+
+        except socket.error as e:
+            logging.error(f"Socket error while handling timeout: {e}")
+        except Exception as e:
+            logging.error(f"Unexpected error while handling timeout: {e}")
+        finally:
+            self.c_sock.close()
+            self.notify_disconnect()
 
     def process_buffered_messages(self):
         while "\r\n" in self.buffer:
             message, self.buffer = self.buffer.split("\r\n", 1)
-            print(f"Received: {repr(message)}")
+            logging.info(f"Received: {repr(message)}")
             self.process_message(message.strip())
 
 
@@ -177,46 +208,75 @@ class ClientRegistration:
             )
 
     def is_valid_nickname(self, nickname):
-        if (
-            (nickname[0] not in STARTING_CHARACTERS)
-            or (len(nickname) > NICKNAME_MAX_LENGTH)
-            or (not all(c in ALLOWED_CHARACTERS for c in nickname[1:]))
-        ):
+        try:
+            if not nickname:
+                return False
+
+            if nickname[0] not in STARTING_CHARACTERS:
+                return False
+
+            if len(nickname) > NICKNAME_MAX_LENGTH:
+                return False
+        
+            if not all(c in ALLOWED_CHARACTERS for c in nickname[1:]):
+                return False
+            
+            if ' ' in nickname or '@' in nickname:
+                return False
+        
+            return True
+
+        except Exception as e:
+            print(f"An error occurred while validating the nickname: {e}")
             return False
-        return True
 
 
 class ClientMessaging:
     def handle_private_messages(self, message):
         parts = message.split(" ", 2)
         if len(parts) < 3:
+            self.send_message(":server 461 :Not enough parameters\r\n")
             return
+    
         target, message_content = parts[1], parts[2].lstrip(":")
-        if target.startswith("#"):
-            self._handle_channel_message(target, message_content)
-        else:
-            self._handle_user_message(target, message_content)
+        if not message_content:
+            self.send_message(":server 412 :No text to send\r\n")
+            return
 
-    def _handle_channel_message(self, target, message_content):
+        if target.startswith("#"):
+            self.handle_channel_message(target, message_content)
+        else:
+            self.handle_user_message(target, message_content)
+
+    def handle_channel_message(self, target, message_content):
         if target not in self.channels:
             self.send_message(
                 f":server 403 {self.nickname} {target} :No such channel or not a member\r\n"
             )
             return
+        
         message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
+
         for client in self.channels[target].clients:
             if client != self:
                 client.send_message(message)
 
-    def _handle_user_message(self, target, message_content):
+    def handle_user_message(self, target, message_content):
+    
+        if self.nickname == target:
+            self.send_message(f":server 404 {self.nickname} {target} :Cannot send message to oneself\r\n")
+            return
+
         target_client = self._find_client_by_nickname(target)
+        
         if target_client:
+
             message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
             target_client.send_message(message)
+
         else:
-            self.send_message(
-                f":server 401 {self.nickname} {target} :No such nickname\r\n"
-            )
+            self.send_message(f":server 401 {self.nickname} {target} :No such nickname\r\n")
+
 
     def _find_client_by_nickname(self, nickname):
         target_client = None
@@ -266,10 +326,25 @@ class ClientCommandProcessing:
         print(f"Nickname set to {self.nickname}")
 
     def handle_user(self, message=None):
+        if not message:
+            self.send_message(":server 461 :USER command requires a parameter\r\n")
+            logging.warning("Received empty USER command")
+            return
+
+        if self.is_registered:
+            self.send_message(":server 462 :You may not reregister\r\n")
+            logging.warning("Attempt to reregister USER")
+            return
+
         self.user_received = True
+    
         if self.nickname and not self.is_registered:
             self.register_client()
-        print(f"USER received")
+            logging.info(f"USER command received and client registered: {self.nickname}")
+
+        else:
+            logging.info("USER command received, awaiting NICK command for registration")
+
 
     def handle_part(self, message):
         parts = message.split()
