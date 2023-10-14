@@ -135,15 +135,15 @@ class ClientConnection:
                 logging.warning("Attempt to shutdown a non-socket or already closed socket.")
         except socket.error as e:
             logging.error(f"Socket error during shutdown: {e}")
-            pass
-        self.c_sock.close()
+        finally:
+            self.c_sock.close()
 
 
     def handle_client(self):
         try:
             while True:
                 try:
-                    if self.c_sock.fileno() == -1:
+                    if not self.is_socket_open():
                         logging.error("Socket is already closed.")
                         return
 
@@ -183,12 +183,13 @@ class ClientConnection:
             logging.error(f"Value error: {ve}")
         except Exception as e:
             if str(e) == "Client disconnected":
-                print(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} has disconnected.")
+                logging.info(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} has disconnected.")
             else:
-                print(f"Error in client: {e}")
+                logging.error(f"Error in client: {e}")
 
         finally:
-            self.notify_disconnect()
+            if self.is_socket_open():
+                self.notify_disconnect()
 
     def handle_timeout(self):
         try:
