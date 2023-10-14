@@ -29,6 +29,11 @@ class IRCServer:
         self.s_sock.listen(5)
         print(f"Listening on {self.HOST} : {self.PORT}")
 
+    def get_or_create_channel(self, ch_name):
+        if ch_name not in self.channels:
+            self.channels[ch_name] = Channel(ch_name)
+        return self.channels[ch_name]
+
     def cleanup_disconnects(self):
         while True:
             time.sleep(30)
@@ -73,30 +78,30 @@ class IRCServer:
         cleanup_thread = threading.Thread(target=self.cleanup_disconnects)
         cleanup_thread.daemon = True
         cleanup_thread.start()
-        try:
-            self.bind_and_listen()
-            while True:
-                c_sock = self.accept_connection()
-                if c_sock:
-                    threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
-                else:
-                    logging.warning("Socket was none.")
-        except (socket.timeout, ConnectionRefusedError) as e:
-            logging.error(f"Connection error: {e}")
-        except socket.error as se:
-            logging.error(f"Socket error: {se}")
-        except ValueError as ve:
-            logging.error(f"Value error: {ve}")
-        except Exception as e:
-            logging.error(f"Unexpected error: {e}")
-        finally:
-            self.s_sock.close()
-            logging.info("Socket has been closed.")
-
-    def get_or_create_channel(self, ch_name):
-        if ch_name not in self.channels:
-            self.channels[ch_name] = Channel(ch_name)
-        return self.channels[ch_name]
+        while True:
+            try:
+                self.bind_and_listen()
+                while True:
+                    c_sock = self.accept_connection()
+                    if c_sock:
+                        threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
+                    else:
+                        logging.warning("Socket was none.")
+            except (socket.timeout, ConnectionRefusedError) as e:
+                logging.error(f"Connection error: {e}")
+                continue
+            except socket.error as se:
+                logging.error(f"Socket error: {se}")
+                break
+            except ValueError as ve:
+                logging.error(f"Value error: {ve}")
+                break
+            except Exception as e:
+                logging.error(f"Unexpected error: {e}")
+                break
+            finally:
+                self.s_sock.close()
+                logging.info("Socket has been closed.")
 
 class ClientConnection:
     def send_message(self, message):
