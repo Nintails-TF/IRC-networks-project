@@ -123,15 +123,14 @@ class ClientConnection:
         finally:
             self.server.c_lock.release()
 
-        # Gracefully shutting down the client socket
         try:
-            if self.c_sock.fileno() != -1:  # Check whether the socket is already closed
+            if self.c_sock.fileno() != -1:
                 self.c_sock.shutdown(socket.SHUT_RDWR)
             else:
                 logging.warning("Attempt to shutdown a non-socket or already closed socket.")
         except socket.error:
             logging.error(f"Socket error during shutdown: {e}")
-            pass  # Ignore if the socket is already closed or in a state that doesn't allow shutdown
+            pass
         self.c_sock.close()
 
 
