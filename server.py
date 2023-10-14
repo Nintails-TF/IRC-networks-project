@@ -38,6 +38,7 @@ class IRCServer:
             ]
             for ip in ips_to_remove:
                 del self.disconn_times[ip]
+                print(f"Removed IP {ip} from cooldown list.")
 
     def accept_connection(self):
         c_sock, c_addr = self.s_sock.accept()
@@ -67,6 +68,9 @@ class IRCServer:
         print("Server has been shut down.")
 
     def start(self):
+        cleanup_thread = threading.Thread(target=self.cleanup_disconnects)
+        cleanup_thread.daemon = True
+        cleanup_thread.start()
         try:
             self.bind_and_listen()
             while True:
@@ -90,7 +94,6 @@ class IRCServer:
         if ch_name not in self.channels:
             self.channels[ch_name] = Channel(ch_name)
         return self.channels[ch_name]
-
 
 class ClientConnection:
     def send_message(self, message):
