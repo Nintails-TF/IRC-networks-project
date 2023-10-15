@@ -120,30 +120,28 @@ class ClientConnection:
     def notify_disconnect(self):
         if self.nickname and self.nickname in self.server.reg_users:
             self.server.reg_users.remove(self.nickname)
-        
         self.server.c_lock.acquire()
         try:
             if self in self.server.clients:
                 self.server.clients.remove(self)
         finally:
             self.server.c_lock.release()
-
-        try:
-            if self.c_sock.fileno() != -1:
+        if self.is_socket_open():
+            try:
                 self.c_sock.shutdown(socket.SHUT_RDWR)
-            else:
-                logging.warning("Attempt to shutdown a non-socket or already closed socket.")
-        except socket.error as e:
-            logging.error(f"Socket error during shutdown: {e}")
-            pass
-        self.c_sock.close()
-
+            except socket.error as e:
+                logging.error(f"Socket error during shutdown: {e}")
+            finally:
+                self.c_sock.close()
+                self.disconnected = True
+        else:
+            logging.warning("Attempt to shutdown a non-socket or already closed socket.")
 
     def handle_client(self):
         try:
-            while True:
+            while not self.disconnected:  # Check if the client is disconnected
                 try:
-                    if self.c_sock.fileno() == -1:
+                    if not self.is_socket_open():
                         logging.error("Socket is already closed.")
                         return
 
@@ -161,7 +159,6 @@ class ClientConnection:
                 
                 try:
                     self.buffer += data.decode("utf-8")
-                    
                 except UnicodeDecodeError as ue:
                     logging.error(f"Unicode decode error: {ue}")
                     continue                    
@@ -183,24 +180,32 @@ class ClientConnection:
             logging.error(f"Value error: {ve}")
         except Exception as e:
             if str(e) == "Client disconnected":
-                print(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} has disconnected.")
+                logging.info(f"Client {self.nickname if self.nickname else self.c_sock.getpeername()} has disconnected.")
             else:
-                print(f"Error in client: {e}")
-
+                logging.error(f"Error in client: {e}")
         finally:
-            self.notify_disconnect()
+            if self.is_socket_open():
+                self.notify_disconnect()
+
+    def is_socket_open(self):
+        try:
+            return self.c_sock.fileno() != -1
+        except socket.error:
+            return False
 
     def handle_timeout(self):
         try:
             ip = self.c_sock.getpeername()[0]
             self.server.disconn_times[ip] = time.time()
-
             for ch_name, channel in self.channels.items():
                 for client in channel.clients:
                     if client != self and client.c_sock.fileno() != -1:
-                        client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
-                channel.remove_client(self)
+                        try:
+                            client.send_message(f":{self.nickname} QUIT :Timed out\r\n")
+                        except Exception as e:
+                            logging.error(f"Error notifying client of timeout: {e}")
 
+                channel.remove_client(self)
             self.send_message(f":server NOTICE {self.nickname} :You have been timed out due to inactivity.\r\n")
 
         except socket.error as e:
@@ -208,8 +213,13 @@ class ClientConnection:
         except Exception as e:
             logging.error(f"Unexpected error while handling timeout: {e}")
         finally:
-            self.c_sock.close()
+            try:
+                self.c_sock.close()
+            except Exception as e:
+                logging.error(f"Error closing socket after timeout: {e}")
+            
             self.notify_disconnect()
+
 
     def process_buffered_messages(self):
         while "\r\n" in self.buffer:
@@ -332,12 +342,24 @@ class ClientCommandProcessing:
     def handle_nick(self, message):
         new_nickname = message.split(" ")[1].strip()
         old_nickname = self.nickname
+
+        # Check if the new nickname is valid
         if not self.is_valid_nickname(new_nickname):
             self.send_message(":server 432 :Erroneous Nickname\r\n")
             return
+
+        # Check if the new nickname is already in use
+        if new_nickname in self.server.reg_users:
+            self.send_message(f":server 433 * {new_nickname} :Nickname is already in use\r\n")
+            return
+
+        # If the above checks pass, update the nickname
         self.nickname = new_nickname
+
+        # Additional code for registration and notifications...
         if self.user_received and not self.is_registered:
             self.register_client()
+
         if old_nickname:
             notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
 
@@ -347,7 +369,12 @@ class ClientCommandProcessing:
                     client.send_message(notification_msg)
             finally:
                 self.server.c_lock.release()
+
         print(f"Nickname set to {self.nickname}")
+
+
+
+
 
     def handle_user(self, message=None):
         if not message:
@@ -361,13 +388,16 @@ class ClientCommandProcessing:
             return
 
         self.user_received = True
-    
+
         if self.nickname and not self.is_registered:
             self.register_client()
+            if self.nickname not in self.server.reg_users:  # Ensure the nickname isn't already in the list
+                self.server.reg_users.append(self.nickname)
             logging.info(f"USER command received and client registered: {self.nickname}")
 
         else:
-            logging.info("USER command received, awaiting NICK command for registration")
+            logging.info("USER command received, awaiting NICK command for registration")   
+
 
 
     def handle_part(self, message):
@@ -418,25 +448,20 @@ class ClientCommandProcessing:
     def join_channel(self, ch_name):
         channel = self.server.get_or_create_channel(ch_name)
         if ch_name not in self.channels:
-            # Add the current client to the channel if not already in it
             channel.add_client(self)
             self.channels[ch_name] = channel
         
             join_message = f":{self.nickname} JOIN :{ch_name}\r\n"
             
-            # Send JOIN message to all clients in the channel
             for client in channel.clients:
                 if client != self:
                     client.send_message(join_message)
 
-            # Create a list of unique user nicknames in the channel
             user_nicknames = set(client.nickname for client in channel.clients)
             
-            # Create a message listing users in the channel
             users_list = " ".join(user_nicknames)
             notice_message = f"Users in {ch_name}: {users_list}"
             
-            # Send the notice message to the server and the channel
             channel.send_notice("server", notice_message)
             
     def handle_ping(self, message):
@@ -457,8 +482,12 @@ class ClientCommandProcessing:
 
         self.channels.clear()
         self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
+        
+        self.disconnected = True  # Set the disconnected attribute to True
+        
         self.notify_disconnect()
-        logging.info(f"{self.nickname} has disconnnected")
+        logging.info(f"{self.nickname} has disconnected")
+
 
 
 
@@ -550,6 +579,7 @@ class IRCClient(
         self.user_received = False
         self.buffer = ""
         self.is_registered = False
+        self.disconnected = False
 
         self.commands = {
             "CAP LS": self.handle_cap_ls,
