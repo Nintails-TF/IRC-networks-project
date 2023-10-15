@@ -340,45 +340,62 @@ class ClientCommandProcessing:
         if not handled:
             self.handle_unknown(message)
 
+    # "CAP LS" command which requests a list of the server's capabilities
     def handle_cap_ls(self, message=None):
+        # Sends a message indicating the server capabilities.
         self.c_sock.send(b":server CAP * LS :\r\n")
 
+    # "NICK" command which allows clients to set or change their nickname
     def handle_nick(self, message):
+
+        # Extract nickname from the message
         new_nickname = message.split(" ")[1].strip()
     
+        # Check the desired nickname with is_valid_nickname method. If not, send an error message
         if not self.is_valid_nickname(new_nickname):
             self.send_message(":server 432 :Erroneous Nickname\r\n")
             return
     
+        # Check the desired nickname is already in use. If so, send an error message
         if new_nickname in self.server.reg_users:
             self.send_message(
                 f":server 433 * {new_nickname} :Nickname is already in use\r\n"
             )
             return
-    
+        
+        # Store the current nickname before changing it
         old_nickname = self.nickname
+        # If the old nickname exists and is in the list of registered users, remove it.
         if old_nickname and old_nickname in self.server.reg_users:
             self.server.reg_users.remove(old_nickname)
     
+        # Update the client's nickname to the new one
         self.nickname = new_nickname
 
+        # If the USER command has been received but the client is not yet registered, register the client
         if self.user_received and not self.is_registered:
             self.register_client()
             logging.info(f"USER command received and client registered: {self.nickname}")
         else:
+            # If only the USER command has been received, log that the server is waiting for the NICK command to complete registration
             logging.info("USER command received, awaiting NICK command for registration")
 
+        # If the client had an old nickname, notify all other clients about the nickname change
         if old_nickname:
             notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
+            
+            # Aquire lock for safe manipulation
             self.server.c_lock.acquire()
             try:
+                # Notify all clients except the one changing its nickname
                 for client in self.server.clients:
                     if client != self:
                         client.send_message(notification_msg)
             finally:
+                # Ensure the lock is released after notifying all clients.
                 self.server.c_lock.release()
 
-        print(f"Nickname set to {self.nickname}")
+        logging.info(f"Nickname set to {self.nickname}")
 
 
     def handle_user(self, message=None):
