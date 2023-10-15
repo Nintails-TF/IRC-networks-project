@@ -6,9 +6,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 
 NICKNAME_MAX_LENGTH = 15
-ALLOWED_CHARACTERS = set(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}"
-)
+ALLOWED_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-[]\\`^{}")
 STARTING_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 
@@ -283,38 +281,32 @@ class ClientMessaging:
             return
 
         if target.startswith("#"):
-            self.handle_channel_message(target, message_content)
+            self._handle_message(target, message_content, is_channel=True)
         else:
-            self.handle_user_message(target, message_content)
+            self._handle_message(target, message_content, is_channel=False)
 
-    def handle_channel_message(self, target, message_content):
-        if target not in self.channels:
-            self.send_message(
-                f":server 403 {self.nickname} {target} :No such channel or not a member\r\n"
-            )
-            return
+    def _handle_message(self, target, message_content, is_channel=True):
+        """Utility function to handle user and channel messages."""
+        if is_channel:
+            if target not in self.channels:
+                self.send_message(f":server 403 {self.nickname} {target} :No such channel or not a member\r\n")
+                return
         
-        message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
-
-        for client in self.channels[target].clients:
-            if client != self:
-                client.send_message(message)
-
-    def handle_user_message(self, target, message_content):
-    
-        if self.nickname == target:
-            self.send_message(f":server 404 {self.nickname} {target} :Cannot send message to oneself\r\n")
-            return
-
-        target_client = self._find_client_by_nickname(target)
-        
-        if target_client:
-
             message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
-            target_client.send_message(message)
-
+            for client in self.channels[target].clients:
+                if client != self:
+                    client.send_message(message)
         else:
-            self.send_message(f":server 401 {self.nickname} {target} :No such nickname\r\n")
+            if self.nickname == target:
+                self.send_message(f":server 404 {self.nickname} {target} :Cannot send message to oneself\r\n")
+                return
+
+            target_client = self._find_client_by_nickname(target)
+            if target_client:
+                message = f":{self.nickname} PRIVMSG {target} :{message_content}\r\n"
+                target_client.send_message(message)
+            else:
+                self.send_message(f":server 401 {self.nickname} {target} :No such nickname\r\n")
 
 
     def _find_client_by_nickname(self, nickname):
