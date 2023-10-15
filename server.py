@@ -342,12 +342,24 @@ class ClientCommandProcessing:
     def handle_nick(self, message):
         new_nickname = message.split(" ")[1].strip()
         old_nickname = self.nickname
+
+        # Check if the new nickname is valid
         if not self.is_valid_nickname(new_nickname):
             self.send_message(":server 432 :Erroneous Nickname\r\n")
             return
+
+        # Check if the new nickname is already in use
+        if new_nickname in self.server.reg_users:
+            self.send_message(f":server 433 * {new_nickname} :Nickname is already in use\r\n")
+            return
+
+        # If the above checks pass, update the nickname
         self.nickname = new_nickname
+
+        # Additional code for registration and notifications...
         if self.user_received and not self.is_registered:
             self.register_client()
+
         if old_nickname:
             notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
 
@@ -357,7 +369,12 @@ class ClientCommandProcessing:
                     client.send_message(notification_msg)
             finally:
                 self.server.c_lock.release()
+
         print(f"Nickname set to {self.nickname}")
+
+
+
+
 
     def handle_user(self, message=None):
         if not message:
@@ -371,13 +388,16 @@ class ClientCommandProcessing:
             return
 
         self.user_received = True
-    
+
         if self.nickname and not self.is_registered:
             self.register_client()
+            if self.nickname not in self.server.reg_users:  # Ensure the nickname isn't already in the list
+                self.server.reg_users.append(self.nickname)
             logging.info(f"USER command received and client registered: {self.nickname}")
 
         else:
-            logging.info("USER command received, awaiting NICK command for registration")
+            logging.info("USER command received, awaiting NICK command for registration")   
+
 
 
     def handle_part(self, message):
