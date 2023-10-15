@@ -285,6 +285,7 @@ class ClientRegistration:
 
 
 class ClientMessaging:
+    # Handle private messages, determining whether they're meant for a channel or a specific user.
     def handle_private_messages(self, message):
         parts = message.split(" ", 2)
         if len(parts) < 3:
@@ -300,7 +301,7 @@ class ClientMessaging:
             self._handle_message(target, message_content, is_channel=True)
         else:
             self._handle_message(target, message_content, is_channel=False)
-
+    # Internal method to process the actual message, based on whether it's for a channel or a user.
     def _handle_message(self, target, message_content, is_channel=True):
         """Utility function to handle user and channel messages."""
         if is_channel:
@@ -324,7 +325,7 @@ class ClientMessaging:
             else:
                 self.send_message(f":server 401 {self.nickname} {target} :No such nickname\r\n")
 
-
+    # Find a client by their nickname from the server's list of clients.
     def _find_client_by_nickname(self, nickname):
         target_client = None
         self.server.c_lock.acquire()
