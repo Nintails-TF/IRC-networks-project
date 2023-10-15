@@ -324,12 +324,19 @@ class ClientMessaging:
 
 class ClientCommandProcessing:
     def process_message(self, message):
+        # Initialize a flag to indicate whether the message was handled by any command
         handled = False
+        # Iterate over the commands and their handlers for each
         for cmd, handler in self.commands.items():
+            # Check if the incoming message starts with a known command
             if message.upper().startswith(cmd):
+                # Call the associated handler for the matched command
                 handler(message)
                 handled = True
+                # Exit the loop since the command has been processed
                 break
+            
+        # If message was not recognized as any known command, handle it as an unknown command
         if not handled:
             self.handle_unknown(message)
 
@@ -485,10 +492,6 @@ class ClientCommandProcessing:
         
         self.notify_disconnect()
         logging.info(f"{self.nickname} has disconnected")
-
-
-
-
 
     def handle_who(self, message=None):
         parts = message.split(" ")
