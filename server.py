@@ -411,165 +411,242 @@ class ClientCommandProcessing:
         logging.info(f"Nickname set to {self.nickname}")
 
 
+    # Handles the "USER" command for client registration
     def handle_user(self, message=None):
+    
+        # If the message is absent, violates protocol, inform client
         if not message:
             self.send_message(":server 461 :USER command requires a parameter\r\n")
             logging.warning("Received empty USER command")
             return
 
+        # Prevent double registration
         if self.is_registered:
             self.send_message(":server 462 :You may not reregister\r\n")
             logging.warning("Attempt to reregister USER")
             return
 
+        # Flag that we've received the USER part of the registration process.
         self.user_received = True
 
+        # If a nickname is set and client isn't registered, complete registration
         if self.nickname and not self.is_registered:
             self.register_client()
-            if self.nickname not in self.server.reg_users:  # Ensure the nickname isn't already in the list
+            # Prevent duplicate nicknames to maintain unique client identities
+            if self.nickname not in self.server.reg_users:
                 self.server.reg_users.append(self.nickname)
             logging.info(f"USER command received and client registered: {self.nickname}")
-
         else:
-            logging.info("USER command received, awaiting NICK command for registration")   
+            logging.info("USER command received, awaiting NICK command for registration")
 
-
-
+    # Handles the "PART" command which allows a client to leave a channel
     def handle_part(self, message):
-        parts = message.split()
     
+        # Split the message to extract channel details
+        parts = message.split()
+
+        # If the channel details are missing, protocol violation, inform the client
         if len(parts) < 2:
             self.send_message(":server 461 :Not enough parameters\r\n")
             return
 
+        # Extract the channel name from the message
         channel = parts[1].strip()
 
+        # If the client is not part of the channel, inform them
         if channel not in self.channels:
             self.send_message(f":server 403 {self.nickname} {channel} :No such channel or not a member\r\n")
             return
-    
+
+        # Remove the client from the specified channel's list of members
         self.channels[channel].remove_client(self)
+        
+        # Remove the channel from the client's list of channels
         del self.channels[channel]
-    
+
+        # Notify all clients that this client has left the channel
         part_command = f":{self.nickname} PART {channel}\r\n"
         for client in self.server.clients:
             client.send_message(part_command)
-
-
-
+    
+    # Handles the "CAP END" command, which indicates the end of the client's capability negotiation phase.
+    # Currently, this implementation does not perform any action upon receiving this command.        
     def handle_cap_end(self, message=None):
         pass
 
+    # Handles any command that the server doesn't recognize
     def handle_unknown(self, message):
+        # Constructs an error message indicating that the received command is unrecognized
         error_msg = f":server 421 {message.split(' ')[0]} :Unknown command\r\n"
+        # Sends the constructed error message back to the client
         self.send_message(error_msg)
 
+    # Broadcasts a message to all connected clients, except the one identified by the old_nickname.
     def broadcast_to_all_clients(self, message, old_nickname):
+        # Acquire a lock to ensure thread-safe access to the server's list of clients.
         self.server.c_lock.acquire()
         try:
+            # Loop through each connected client.
             for client in self.server.clients:
+                # Exclude sending the message to the client identified by the old nickname.
                 if client.nickname != old_nickname:
                     client.send_message(message)
+        # Ensure that the lock is always released after processing, regardless of the outcome.
         finally:
             self.server.c_lock.release()
 
+
+    # Handles the "JOIN" command, which allows a client to join a channel
     def handle_join(self, message):
+        # Extract the channel name from the received message
         ch_name = message.split(" ")[1].strip()
+
+        # Ensure the channel name starts with '#'
         if ch_name.startswith("#"):
+            # Initiate the process for the client to join the specified channel
             self.join_channel(ch_name)
         else:
+            # If the channel name doesn't start with '#', inform the client of the incorrect usage
             self.send_message(f":server 461 {ch_name} :Not enough parameters\r\n")
 
+
+    # Allows the client to join a specified channel or creates it if it doesn't exist
     def join_channel(self, ch_name):
+        # Fetch the channel object, creating it if it doesn't already exist
         channel = self.server.get_or_create_channel(ch_name)
+
+        # If the client is not already in the specified channel:
         if ch_name not in self.channels:
+            # Add the client to the channel
             channel.add_client(self)
+            # Update the client's list of channels
             self.channels[ch_name] = channel
-        
+
+            # Construct a message indicating that the client has joined the channel.
             join_message = f":{self.nickname} JOIN :{ch_name}\r\n"
-            
+
+            # Notify all other clients in the channel about the new joiner
             for client in channel.clients:
                 if client != self:
                     client.send_message(join_message)
 
+            # Gather a list of all current nicknames in the channel
             user_nicknames = set(client.nickname for client in channel.clients)
-            
             users_list = " ".join(user_nicknames)
+        
+            # Notify all clients in the channel about the current list of users
             notice_message = f"Users in {ch_name}: {users_list}"
-            
             channel.send_notice("server", notice_message)
+
             
+    # Handles the "PING" command, which checks connectivity between clients
     def handle_ping(self, message):
+        
+        # Extract the data associated with the PING command
         ping_data = message.split(" ")[1]
+    
+        # Respond to the client with a "PONG" message, echoing back the received data.
         self.send_message(f"PONG :{ping_data}\r\n")
 
+
+    # Handles the "QUIT" command, allowing a client to disconnect from the server.
     def handle_quit(self, message):
+        # Split the message to extract an optional quit message provided by the client.
         parts = message.split(" ", 1)
+    
         if len(parts) > 1:
             quit_msg = parts[1]
         else:
             quit_msg = f"{self.nickname} has quit"
 
+        # Notify all other clients in the channel that user quit
         for ch_name, channel in self.channels.items():
             for client in self.server.clients:
                 if ch_name in client.channels and client != self:
                     client.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
 
+        # Clear the client's list of channels
         self.channels.clear()
+
+        # Send a quit notification to the client itself
         self.send_message(f":{self.nickname} QUIT :{quit_msg}\r\n")
-        
-        self.disconnected = True  # Set the disconnected attribute to True
-        
+
+        # Mark the client as disconnected
+        self.disconnected = True
+    
+        # Notify the server or other relevant entities about the client's disconnection
         self.notify_disconnect()
+    
+        # Log the disconnection event for server administration or debugging
         logging.info(f"{self.nickname} has disconnected")
 
+
+    # Handles the "WHO" command, which provides information about users in a specified channel or the entire server.
     def handle_who(self, message=None):
+        # Split the message to extract the channel name, if provided
         parts = message.split(" ")
         target_ch = parts[1] if len(parts) > 1 else None
 
+        # If a channel name is provided doesn't begin with '#', it's invalid
         if target_ch is not None and not target_ch.startswith("#"):
             self.send_message(":server 403 :Invalid channel name\r\n")
             return
 
+        # Initialize a list to store the clients in the target channel
         clients_in_channel = []
+        # Acquire a lock for safety
         self.server.c_lock.acquire()
         try:
+            # Populate the list with clients who are either in the specified channel or, if no channel is specified, all connected clients.
             clients_in_channel = [client for client in self.server.clients 
                                   if not target_ch or target_ch in client.channels]
         finally:
             self.server.c_lock.release()
 
+        # Loop through each client and send the client details to the requester.
         for client in clients_in_channel:
             if client.nickname:
                 info = f":server 352 {self.nickname} {target_ch} {client.nickname} {client.c_sock.getpeername()[0]} :{client.nickname}\r\n"
                 self.send_message(info)
 
+        # Indicate the end of the WHO list to the requester.
         self.send_message(":server 315 :End of /WHO list.\r\n")
 
+    # Handles the "MODE" command, which allows clients to query or set modes for themselves or channels.
     def handle_mode(self, message):
+        # Split the message to extract the target (either a channel or nickname) and the mode parameters.
         parts = message.split()
 
+        # If the command lacks necessary parameters, inform the client
         if len(parts) < 2:
             self.send_message(":server 461 MODE :Not enough parameters\r\n")
             return
 
+        # Separate the target from the remaining mode parameters
         target, *remaining_parts = parts[1:]
-    
+
+        # Check if the target of the MODE command is the client's nickname
         if target == self.nickname:
+            # Determine the desired mode, or fetch the current mode if none is provided
             user_mode = remaining_parts[0] if remaining_parts else self.get_user_mode()
             message = None
-       
+
+            # If a mode is provided:
             if remaining_parts:
+                # Set the provided mode for the client
                 self.set_user_mode(user_mode)
+                # Construct a confirmation message based on the provided mode
                 if user_mode in {"+o", "-o"}:
                     message = f":server 221 {self.nickname} :User mode set to {user_mode}\r\n"
                 else:
+                    # If the mode is not recognized, inform the client about the correct usage
                     message = f":server 501 {self.nickname} :Unknown MODE flag. Usage `/mode <channel/nickname> <+o/-o>`\r\n"
             else:
+                # If no mode is provided, inform the client about their current mode
                 message = f":server 221 {self.nickname} :User mode is {user_mode}\r\n"
-        
+    
+            # Send the constructed message to the client
             self.send_message(message)
-
 
 
     def handle_kick(self, message=None):
@@ -578,22 +655,27 @@ class ClientCommandProcessing:
     def handle_motd(self, message=None):
         self.send_message(":server 502 :MOTD command is not supported\r\n")
 
+    # Handles the "LIST" command which provides a list of channels and their topics.
+    # If there are no channels, an appropriate message is sent.
     def handle_list(self, message=None):
         print("GOT TO METHOD")
         if not self.server.channels:
             self.send_message(":server 323 :No channels available\r\n")
             return
+        # For each available channel, send its name and topic (if set).
         for ch_name, channel in self.server.channels.items():
             self.send_message(f":server 322 {self.nickname} {ch_name} :No topic set\r\n")
+        # Indicate the end of the channel list.
         self.send_message(":server 323 :End of /LIST\r\n")
 
+    # Handles the "LUSERS" command which provides statistics about the server's users and channels.
+    # Sends back the total number of registered users, total number of channels, and a confirmation of the server's presence.
     def handle_lusers(self, message=None):
         total_users = len(self.server.reg_users)
         total_channels = len(self.server.channels)
         self.send_message(f":server 251 {self.nickname} :There are {total_users} users on 1 server(s)\r\n")
         self.send_message(f":server 254 {self.nickname} {total_channels} :channels formed\r\n")
         self.send_message(f":server 255 {self.nickname} :I have {total_users} clients and 1 servers\r\n")
-
 
 
 class IRCClient(
