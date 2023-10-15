@@ -36,7 +36,7 @@ class IRCServer:
             self.channels[ch_name] = Channel(ch_name)
         return self.channels[ch_name]
 
-    # Regularly remove IPs that have passed their cooldown period.
+    # Regularly remove IPs that have passed their cooldown period
     def cleanup_disconnects(self):
         while True:
             time.sleep(30)
@@ -50,7 +50,7 @@ class IRCServer:
                 del self.disconn_times[ip]
                 print(f"Removed IP {ip} from cooldown list.")
 
-    # Accept incoming client connections.
+    # Accept incoming client connections
     def accept_connection(self):
         c_sock, c_addr = self.s_sock.accept()
         print(f"Accepted connection from {c_addr[0]} : {c_addr[1]}")
@@ -63,7 +63,7 @@ class IRCServer:
             return None
         return c_sock
 
-    # Handle an individual client's activities.
+    # Handle an individual client's activities
     def handle_ind_client(self, c_sock):
         client = IRCClient(c_sock, self)
         self.c_lock.acquire()
@@ -73,7 +73,7 @@ class IRCServer:
             self.c_lock.release()
         client.handle_client()
 
-    # Shut down the server and close all connections.
+    # Shut down the server and close all connections
     def shutdown(self):
         self.broadcast_message(":server NOTICE :Server is shutting down\r\n")
         time.sleep(5)
@@ -82,21 +82,21 @@ class IRCServer:
         self.s_sock.close()
         print("Server has been shut down.")
 
-    # Start the server and manage client connections.
+    # Start the server and manage client connections
     def start(self):
-        # Start the cleanup thread.
+        # Start the cleanup thread
         cleanup_thread = threading.Thread(target=self.cleanup_disconnects)
         cleanup_thread.daemon = True
         cleanup_thread.start()
-        # Main server loop.
+        # Main server loop
         try:
             while True:
                 self.bind_and_listen()
                 while True:
-                    # Accept and handle new clients.
+                    # Accept and handle new clients
                     c_sock = self.accept_connection()
                     if c_sock:
-                        # Start a new thread for each client.
+                        # Start a new thread for each client
                         threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
                     else:
                         logging.warning("Socket was none.")
@@ -118,6 +118,7 @@ class IRCServer:
 
 
 class ClientConnection:
+    # Send a message to the client. Handles errors and logs accordingly
     def send_message(self, message):
         if not message:
             logging.warning("Attempted to send an empty message.")
@@ -131,6 +132,7 @@ class ClientConnection:
         except Exception as e:
             logging.error(f"Unexpected error: {e}")
 
+    # Notify the server about a client's disconnection and handle cleanup
     def notify_disconnect(self):
         if self.nickname and self.nickname in self.server.reg_users:
             self.server.reg_users.remove(self.nickname)
@@ -150,7 +152,7 @@ class ClientConnection:
                 self.disconnected = True
         else:
             logging.warning("Attempt to shutdown a non-socket or already closed socket.")
-
+    # Main handler for the client. Processes messages and handles errors
     def handle_client(self):
         try:
             while not self.disconnected:  # Check if the client is disconnected
@@ -200,13 +202,13 @@ class ClientConnection:
         finally:
             if self.is_socket_open():
                 self.notify_disconnect()
-
+    # Check if the client socket is open
     def is_socket_open(self):
         try:
             return self.c_sock.fileno() != -1
         except socket.error:
             return False
-
+    # Handle client timeouts and notify other clients
     def handle_timeout(self):
         try:
             ip = self.c_sock.getpeername()[0]
@@ -234,7 +236,7 @@ class ClientConnection:
             
             self.notify_disconnect()
 
-
+    # Process any buffered messages from the client.
     def process_buffered_messages(self):
         while "\r\n" in self.buffer:
             message, self.buffer = self.buffer.split("\r\n", 1)
@@ -256,32 +258,34 @@ class ClientRegistration:
         else:
             logging.warning(f"Nickname {self.nickname} is already in the registered users set!")
 
-
+    # Check if a given nickname is valid based on specific conditions (starting characters, length, allowed characters).
     def is_valid_nickname(self, nickname):
         try:
+            # Check if the nickname is empty.
             if not nickname:
                 return False
-
+            # Ensure the first character is in the allowed starting characters.
             if nickname[0] not in STARTING_CHARACTERS:
                 return False
-
+            # Check if the nickname exceeds the maximum allowed length.
             if len(nickname) > NICKNAME_MAX_LENGTH:
                 return False
-        
+            # Ensure all characters in the nickname are allowed.
             if not all(c in ALLOWED_CHARACTERS for c in nickname[1:]):
                 return False
-            
+            # Ensure the nickname doesn't contain spaces or '@'.
             if ' ' in nickname or '@' in nickname:
                 return False
         
             return True
-
+        # Handle any exceptions that might occur during validation.
         except Exception as e:
             print(f"An error occurred while validating the nickname: {e}")
             return False
 
 
 class ClientMessaging:
+    # Handle private messages, determining whether they're meant for a channel or a specific user.
     def handle_private_messages(self, message):
         parts = message.split(" ", 2)
         if len(parts) < 3:
@@ -297,7 +301,7 @@ class ClientMessaging:
             self._handle_message(target, message_content, is_channel=True)
         else:
             self._handle_message(target, message_content, is_channel=False)
-
+    # Internal method to process the actual message, based on whether it's for a channel or a user..
     def _handle_message(self, target, message_content, is_channel=True):
         """Utility function to handle user and channel messages."""
         if is_channel:
@@ -321,7 +325,7 @@ class ClientMessaging:
             else:
                 self.send_message(f":server 401 {self.nickname} {target} :No such nickname\r\n")
 
-
+    # Find a client by their nickname from the server's list of clients.
     def _find_client_by_nickname(self, nickname):
         target_client = None
         self.server.c_lock.acquire()
