@@ -11,9 +11,11 @@ STARTING_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
 class IRCServer:
+    # Default server configuration
     HOST = "::"
     PORT = 6667
 
+     # Initialize the server with default attributes
     def __init__(self):
         self.s_sock = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
         self.clients = []
@@ -22,16 +24,19 @@ class IRCServer:
         self.reg_users = set()
         self.disconn_times = {}
 
+    # Bind the server to the specified host and port, then start listening
     def bind_and_listen(self):
         self.s_sock.bind((self.HOST, self.PORT))
         self.s_sock.listen(5)
         print(f"Listening on {self.HOST} : {self.PORT}")
 
+    # Retrieve an existing channel or create a new one
     def get_or_create_channel(self, ch_name):
         if ch_name not in self.channels:
             self.channels[ch_name] = Channel(ch_name)
         return self.channels[ch_name]
 
+    # Regularly remove IPs that have passed their cooldown period.
     def cleanup_disconnects(self):
         while True:
             time.sleep(30)
@@ -45,6 +50,7 @@ class IRCServer:
                 del self.disconn_times[ip]
                 print(f"Removed IP {ip} from cooldown list.")
 
+    # Accept incoming client connections.
     def accept_connection(self):
         c_sock, c_addr = self.s_sock.accept()
         print(f"Accepted connection from {c_addr[0]} : {c_addr[1]}")
@@ -57,7 +63,7 @@ class IRCServer:
             return None
         return c_sock
 
-
+    # Handle an individual client's activities.
     def handle_ind_client(self, c_sock):
         client = IRCClient(c_sock, self)
         self.c_lock.acquire()
@@ -67,6 +73,7 @@ class IRCServer:
             self.c_lock.release()
         client.handle_client()
 
+    # Shut down the server and close all connections.
     def shutdown(self):
         self.broadcast_message(":server NOTICE :Server is shutting down\r\n")
         time.sleep(5)
@@ -75,19 +82,25 @@ class IRCServer:
         self.s_sock.close()
         print("Server has been shut down.")
 
+    # Start the server and manage client connections.
     def start(self):
+        # Start the cleanup thread.
         cleanup_thread = threading.Thread(target=self.cleanup_disconnects)
         cleanup_thread.daemon = True
         cleanup_thread.start()
+        # Main server loop.
         try:
             while True:
                 self.bind_and_listen()
                 while True:
+                    # Accept and handle new clients.
                     c_sock = self.accept_connection()
                     if c_sock:
+                        # Start a new thread for each client.
                         threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
                     else:
                         logging.warning("Socket was none.")
+         # Handle exceptions and errors.
         except KeyboardInterrupt:
             print("\nShutting down the server gracefully...")
             self.shutdown()
