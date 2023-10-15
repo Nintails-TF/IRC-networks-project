@@ -301,7 +301,7 @@ class ClientMessaging:
             self._handle_message(target, message_content, is_channel=True)
         else:
             self._handle_message(target, message_content, is_channel=False)
-    # Internal method to process the actual message, based on whether it's for a channel or a user.
+    # Internal method to process the actual message, based on whether it's for a channel or a user..
     def _handle_message(self, target, message_content, is_channel=True):
         """Utility function to handle user and channel messages."""
         if is_channel:
