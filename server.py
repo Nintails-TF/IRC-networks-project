@@ -258,32 +258,34 @@ class ClientRegistration:
         else:
             logging.warning(f"Nickname {self.nickname} is already in the registered users set!")
 
-
+    # Check if a given nickname is valid based on specific conditions (starting characters, length, allowed characters).
     def is_valid_nickname(self, nickname):
         try:
+            # Check if the nickname is empty.
             if not nickname:
                 return False
-
+            # Ensure the first character is in the allowed starting characters.
             if nickname[0] not in STARTING_CHARACTERS:
                 return False
-
+            # Check if the nickname exceeds the maximum allowed length.
             if len(nickname) > NICKNAME_MAX_LENGTH:
                 return False
-        
+            # Ensure all characters in the nickname are allowed.
             if not all(c in ALLOWED_CHARACTERS for c in nickname[1:]):
                 return False
-            
+            # Ensure the nickname doesn't contain spaces or '@'.
             if ' ' in nickname or '@' in nickname:
                 return False
         
             return True
-
+        # Handle any exceptions that might occur during validation.
         except Exception as e:
             print(f"An error occurred while validating the nickname: {e}")
             return False
 
 
 class ClientMessaging:
+    # Handle private messages, determining whether they're meant for a channel or a specific user.
     def handle_private_messages(self, message):
         parts = message.split(" ", 2)
         if len(parts) < 3:
@@ -299,7 +301,7 @@ class ClientMessaging:
             self._handle_message(target, message_content, is_channel=True)
         else:
             self._handle_message(target, message_content, is_channel=False)
-
+    # Internal method to process the actual message, based on whether it's for a channel or a user..
     def _handle_message(self, target, message_content, is_channel=True):
         """Utility function to handle user and channel messages."""
         if is_channel:
@@ -323,7 +325,7 @@ class ClientMessaging:
             else:
                 self.send_message(f":server 401 {self.nickname} {target} :No such nickname\r\n")
 
-
+    # Find a client by their nickname from the server's list of clients.
     def _find_client_by_nickname(self, nickname):
         target_client = None
         self.server.c_lock.acquire()
