@@ -21,7 +21,7 @@ class IRCServer:
         self.clients = []
         self.channels = {}
         self.c_lock = threading.Lock()
-        self.reg_users = []
+        self.reg_users = set()
         self.disconn_times = {}
 
     def bind_and_listen(self):
@@ -230,16 +230,18 @@ class ClientConnection:
 
 class ClientRegistration:
     def register_client(self):
-        if self.nickname in self.server.reg_users:
-            self.send_message(
-                f":server 433 * {self.nickname} :Nickname is already in use\r\n"
-            )
-        else:
+        logging.info(f"Registering client with nickname: {self.nickname}")
+
+        # Only register the nickname if it's not already registered
+        if self.nickname not in self.server.reg_users:
             self.is_registered = True
-            self.server.reg_users.append(self.nickname)
+            self.server.reg_users.add(self.nickname)  # Use add for a set
             self.send_message(
                 f":server 001 {self.nickname} :Welcome to the IRC Server!\r\n"
             )
+        else:
+            logging.warning(f"Nickname {self.nickname} is already in the registered users set!")
+
 
     def is_valid_nickname(self, nickname):
         try:
@@ -341,40 +343,47 @@ class ClientCommandProcessing:
 
     def handle_nick(self, message):
         new_nickname = message.split(" ")[1].strip()
-        old_nickname = self.nickname
-
-        # Check if the new nickname is valid
+    
+        # Check for the validity of the nickname
         if not self.is_valid_nickname(new_nickname):
             self.send_message(":server 432 :Erroneous Nickname\r\n")
             return
-
-        # Check if the new nickname is already in use
+    
+        # Check if the nickname is already in use
         if new_nickname in self.server.reg_users:
-            self.send_message(f":server 433 * {new_nickname} :Nickname is already in use\r\n")
-            return
-
-        # If the above checks pass, update the nickname
+            self.send_message(
+                f":server 433 * {new_nickname} :Nickname is already in use\r\n"
+            )
+            return  # Ensure that the method exits here
+    
+        # If client already had a nickname, remove the old one
+        old_nickname = self.nickname
+        if old_nickname and old_nickname in self.server.reg_users:
+            self.server.reg_users.remove(old_nickname)
+    
+        # Set the new nickname
         self.nickname = new_nickname
 
-        # Additional code for registration and notifications...
+        # If the user command has already been received and the client isn't registered yet
         if self.user_received and not self.is_registered:
             self.register_client()
+            logging.info(f"USER command received and client registered: {self.nickname}")
 
+        else:
+            logging.info("USER command received, awaiting NICK command for registration")
+
+        # If there was an old nickname, broadcast the nickname change to other clients
         if old_nickname:
             notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
-
             self.server.c_lock.acquire()
             try:
                 for client in self.server.clients:
-                    client.send_message(notification_msg)
+                    if client != self:
+                        client.send_message(notification_msg)
             finally:
                 self.server.c_lock.release()
 
         print(f"Nickname set to {self.nickname}")
-
-
-
-
 
     def handle_user(self, message=None):
         if not message:
