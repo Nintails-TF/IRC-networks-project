@@ -53,9 +53,12 @@ class IRCServer:
         ip = c_addr[0]
         if ip in self.disconn_times and time.time() - self.disconn_times[ip] < 8:
             print(f"Connection attempt from {ip} but it's on cooldown.")
+            # Inform the client of the cooldown
+            c_sock.send(b"Connection denied: Your IP is on a cooldown.\n")
             c_sock.close()
             return None
         return c_sock
+
 
     def handle_ind_client(self, c_sock):
         client = IRCClient(c_sock, self)
@@ -78,8 +81,8 @@ class IRCServer:
         cleanup_thread = threading.Thread(target=self.cleanup_disconnects)
         cleanup_thread.daemon = True
         cleanup_thread.start()
-        while True:
-            try:
+        try:
+            while True:
                 self.bind_and_listen()
                 while True:
                     c_sock = self.accept_connection()
@@ -87,21 +90,21 @@ class IRCServer:
                         threading.Thread(target=self.handle_ind_client, args=(c_sock,)).start()
                     else:
                         logging.warning("Socket was none.")
-            except (socket.timeout, ConnectionRefusedError) as e:
-                logging.error(f"Connection error: {e}")
-                continue
-            except socket.error as se:
-                logging.error(f"Socket error: {se}")
-                break
-            except ValueError as ve:
-                logging.error(f"Value error: {ve}")
-                break
-            except Exception as e:
-                logging.error(f"Unexpected error: {e}")
-                break
-            finally:
-                self.s_sock.close()
-                logging.info("Socket has been closed.")
+        except KeyboardInterrupt:
+            print("\nShutting down the server gracefully...")
+            self.shutdown()
+        except (socket.timeout, ConnectionRefusedError) as e:
+            logging.error(f"Connection error: {e}")
+        except socket.error as se:
+            logging.error(f"Socket error: {se}")
+        except ValueError as ve:
+            logging.error(f"Value error: {ve}")
+        except Exception as e:
+            logging.error(f"Unexpected error: {e}")
+        finally:
+            self.s_sock.close()
+            logging.info("Socket has been closed.")
+
 
 class ClientConnection:
     def send_message(self, message):
@@ -344,35 +347,28 @@ class ClientCommandProcessing:
     def handle_nick(self, message):
         new_nickname = message.split(" ")[1].strip()
     
-        # Check for the validity of the nickname
         if not self.is_valid_nickname(new_nickname):
             self.send_message(":server 432 :Erroneous Nickname\r\n")
             return
     
-        # Check if the nickname is already in use
         if new_nickname in self.server.reg_users:
             self.send_message(
                 f":server 433 * {new_nickname} :Nickname is already in use\r\n"
             )
-            return  # Ensure that the method exits here
+            return
     
-        # If client already had a nickname, remove the old one
         old_nickname = self.nickname
         if old_nickname and old_nickname in self.server.reg_users:
             self.server.reg_users.remove(old_nickname)
     
-        # Set the new nickname
         self.nickname = new_nickname
 
-        # If the user command has already been received and the client isn't registered yet
         if self.user_received and not self.is_registered:
             self.register_client()
             logging.info(f"USER command received and client registered: {self.nickname}")
-
         else:
             logging.info("USER command received, awaiting NICK command for registration")
 
-        # If there was an old nickname, broadcast the nickname change to other clients
         if old_nickname:
             notification_msg = f":{old_nickname} NICK :{new_nickname}\r\n"
             self.server.c_lock.acquire()
@@ -384,6 +380,7 @@ class ClientCommandProcessing:
                 self.server.c_lock.release()
 
         print(f"Nickname set to {self.nickname}")
+
 
     def handle_user(self, message=None):
         if not message:
