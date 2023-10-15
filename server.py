@@ -258,26 +258,27 @@ class ClientRegistration:
         else:
             logging.warning(f"Nickname {self.nickname} is already in the registered users set!")
 
-
+    # Check if a given nickname is valid based on specific conditions (starting characters, length, allowed characters).
     def is_valid_nickname(self, nickname):
         try:
+            # Check if the nickname is empty.
             if not nickname:
                 return False
-
+            # Ensure the first character is in the allowed starting characters.
             if nickname[0] not in STARTING_CHARACTERS:
                 return False
-
+            # Check if the nickname exceeds the maximum allowed length.
             if len(nickname) > NICKNAME_MAX_LENGTH:
                 return False
-        
+            # Ensure all characters in the nickname are allowed.
             if not all(c in ALLOWED_CHARACTERS for c in nickname[1:]):
                 return False
-            
+            # Ensure the nickname doesn't contain spaces or '@'.
             if ' ' in nickname or '@' in nickname:
                 return False
         
             return True
-
+        # Handle any exceptions that might occur during validation.
         except Exception as e:
             print(f"An error occurred while validating the nickname: {e}")
             return False
