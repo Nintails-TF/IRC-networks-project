@@ -146,10 +146,10 @@ class Bot:
             target = message_parts[2]  # The target recipient
 
             if target == self.nickname:
-                jokesFile = open("jokes.txt", "r")
-                joke = random.choice(jokesFile.readlines())
-                response = f"PRIVMSG {username} :Want to hear an amazing joke? {joke}\r\n"
-                jokesFile.close()
+                factsFile = open("facts.txt", "r")
+                fact = random.choice(jokesFile.readlines())
+                response = f"PRIVMSG {username} :Want to hear an amazing fact? {fact}\r\n"
+                factsFile.close()
                 s.send(response.encode())
 
     # A function where the bot will greet the user on command
