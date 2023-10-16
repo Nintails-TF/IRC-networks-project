@@ -147,7 +147,7 @@ class Bot:
 
             if target == self.nickname:
                 factsFile = open("facts.txt", "r")
-                fact = random.choice(jokesFile.readlines())
+                fact = random.choice(factsFile.readlines())
                 response = f"PRIVMSG {username} :Want to hear an amazing fact? {fact}\r\n"
                 factsFile.close()
                 s.send(response.encode())
